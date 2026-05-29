@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { useVaultStore } from "../lib/store";
 import type { Snippet } from "../lib/types";
+import CodeEditor from "./CodeEditor";
 import LanguageBadge from "./LanguageBadge";
 
 // ---------------------------------------------------------------------------
@@ -129,7 +131,7 @@ export default function SnippetDetail() {
 
   const handleCopy = () => {
     if (!form) return;
-    navigator.clipboard.writeText(form.code).catch(() => {});
+    writeText(form.code).catch(() => {});
   };
 
   if (!snippet || !form) {
@@ -224,13 +226,14 @@ export default function SnippetDetail() {
             </button>
           </div>
         </div>
-        <textarea
-          className="flex-1 w-full p-4 bg-transparent font-mono text-sm text-zinc-200 leading-relaxed resize-none outline-none placeholder-zinc-700"
-          value={form.code}
-          onChange={(e) => handleChange("code", e.target.value)}
-          placeholder="// paste or type your snippet here"
-          spellCheck={false}
-        />
+        <div className="flex-1 overflow-auto [&_.cm-editor]:h-full [&_.cm-scroller]:overflow-auto">
+          <CodeEditor
+            value={form.code}
+            onChange={(v) => handleChange("code", v)}
+            language={form.language}
+            placeholder="// paste or type your snippet here"
+          />
+        </div>
       </div>
 
       {/* Notes section */}
@@ -238,13 +241,14 @@ export default function SnippetDetail() {
         <div className="px-4 py-2 border-b border-zinc-800 bg-zinc-900 flex-shrink-0">
           <span className="text-xs font-mono text-zinc-500 uppercase tracking-widest">notes</span>
         </div>
-        <textarea
-          className="flex-1 w-full px-4 py-3 bg-transparent font-mono text-sm text-zinc-400 leading-relaxed resize-none outline-none placeholder-zinc-700"
-          value={form.notes}
-          onChange={(e) => handleChange("notes", e.target.value)}
-          placeholder="markdown notes…"
-          spellCheck={false}
-        />
+        <div className="flex-1 overflow-auto">
+          <CodeEditor
+            value={form.notes}
+            onChange={(v) => handleChange("notes", v)}
+            language="markdown"
+            placeholder="markdown notes…"
+          />
+        </div>
       </div>
     </div>
   );
