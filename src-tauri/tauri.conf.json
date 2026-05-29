@@ -13,8 +13,10 @@
     "windows": [
       {
         "title": "CodeVault",
-        "width": 800,
-        "height": 600
+        "width": 1200,
+        "minWidth": 900,
+        "height": 780,
+        "minHeight": 500
       }
     ],
     "security": {

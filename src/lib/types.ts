@@ -16,12 +16,21 @@ export interface Snippet {
   updated_at: number;
 }
 
-export interface SnippetSummary {
-  id: number;
+export interface NewSnippet {
   title: string;
   description: string;
   language: string;
+  code: string;
+  notes: string;
   favorite: boolean;
   tags: string[];
-  updated_at: number;
+}
+
+export interface SnippetPatch {
+  title?: string;
+  description?: string;
+  language?: string;
+  code?: string;
+  notes?: string;
+  favorite?: boolean;
 }

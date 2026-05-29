@@ -1,5 +1,11 @@
+import { useEffect, useRef, useState } from "react";
 import { useVaultStore } from "../lib/store";
+import type { Snippet } from "../lib/types";
 import LanguageBadge from "./LanguageBadge";
+
+// ---------------------------------------------------------------------------
+// Inline icons
+// ---------------------------------------------------------------------------
 
 function CopyIcon() {
   return (
@@ -9,10 +15,18 @@ function CopyIcon() {
   );
 }
 
+function TrashIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+    </svg>
+  );
+}
+
 function StarIcon({ filled }: { filled: boolean }) {
   return (
     <svg
-      className={`w-4 h-4 ${filled ? "text-emerald-400" : "text-zinc-500 hover:text-zinc-300"}`}
+      className={`w-4 h-4 ${filled ? "text-emerald-400" : "text-zinc-500"}`}
       fill={filled ? "currentColor" : "none"}
       stroke="currentColor"
       strokeWidth={2}
@@ -23,10 +37,102 @@ function StarIcon({ filled }: { filled: boolean }) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Languages list for the select
+// ---------------------------------------------------------------------------
+
+const LANGUAGES = [
+  "bash", "css", "html", "javascript", "json", "markdown",
+  "nginx", "python", "rust", "sql", "toml", "typescript", "yaml",
+];
+
+// ---------------------------------------------------------------------------
+// Form state helpers
+// ---------------------------------------------------------------------------
+
+interface FormState {
+  title: string;
+  description: string;
+  language: string;
+  code: string;
+  notes: string;
+  tagInput: string;
+}
+
+function snippetToForm(s: Snippet): FormState {
+  return {
+    title: s.title,
+    description: s.description,
+    language: s.language,
+    code: s.code,
+    notes: s.notes,
+    tagInput: s.tags.join(", "),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
+
 export default function SnippetDetail() {
   const snippet = useVaultStore((s) => s.selectedSnippet());
+  const { updateSnippet, updateTags, toggleFavorite, confirmDelete } = useVaultStore();
 
-  if (!snippet) {
+  const [form, setForm] = useState<FormState | null>(null);
+  const [isDirty, setIsDirty] = useState(false);
+  const snippetIdRef = useRef<number | null>(null);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Reinitialise local form whenever the selected snippet changes
+  useEffect(() => {
+    if (!snippet) { setForm(null); return; }
+    if (snippet.id !== snippetIdRef.current) {
+      snippetIdRef.current = snippet.id;
+      setForm(snippetToForm(snippet));
+      setIsDirty(false);
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    }
+  }, [snippet]);
+
+  // Debounced autosave (500 ms after last keypress)
+  useEffect(() => {
+    if (!isDirty || !snippet || !form) return;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      updateSnippet(snippet.id, {
+        title: form.title,
+        description: form.description,
+        language: form.language,
+        code: form.code,
+        notes: form.notes,
+      });
+      setIsDirty(false);
+    }, 500);
+    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form, isDirty]);
+
+  const handleChange = (field: keyof FormState, value: string) => {
+    setForm((prev) => prev ? { ...prev, [field]: value } : prev);
+    setIsDirty(true);
+  };
+
+  // Commit tags on blur of the tag input
+  const handleTagBlur = () => {
+    if (!snippet || !form) return;
+    const tags = form.tagInput
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean);
+    updateTags(snippet.id, tags);
+  };
+
+  const handleCopy = () => {
+    if (!form) return;
+    navigator.clipboard.writeText(form.code).catch(() => {});
+  };
+
+  if (!snippet || !form) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-zinc-600 font-mono text-sm">
         <span className="text-3xl mb-3">◌</span>
@@ -35,10 +141,6 @@ export default function SnippetDetail() {
     );
   }
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(snippet.code).catch(() => {});
-  };
-
   const updatedDate = new Date(snippet.updated_at * 1000).toLocaleDateString("en-GB", {
     day: "2-digit", month: "short", year: "numeric",
   });
@@ -46,29 +148,62 @@ export default function SnippetDetail() {
   return (
     <div className="flex flex-col h-full bg-zinc-950">
       {/* Header */}
-      <div className="px-6 py-4 border-b border-zinc-800 flex-shrink-0">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex-1 min-w-0">
-            <h2 className="text-zinc-100 font-mono font-semibold text-base leading-snug truncate">
-              {snippet.title}
-            </h2>
-            {snippet.description && (
-              <p className="text-zinc-500 font-mono text-xs mt-0.5 truncate">{snippet.description}</p>
-            )}
-          </div>
-          <button className="text-zinc-400 hover:text-emerald-400 transition-colors flex-shrink-0 mt-0.5">
+      <div className="px-5 py-4 border-b border-zinc-800 flex-shrink-0 space-y-3">
+        {/* Title row */}
+        <div className="flex items-center gap-2">
+          <input
+            className="flex-1 min-w-0 bg-transparent text-zinc-100 font-mono font-semibold text-base outline-none border-b border-transparent focus:border-zinc-600 transition-colors placeholder-zinc-600"
+            value={form.title}
+            onChange={(e) => handleChange("title", e.target.value)}
+            placeholder="Untitled Snippet"
+          />
+          <button
+            onClick={() => toggleFavorite(snippet.id)}
+            className="flex-shrink-0 hover:text-emerald-400 transition-colors"
+            title="Toggle favourite"
+          >
             <StarIcon filled={snippet.favorite} />
+          </button>
+          <button
+            onClick={() => confirmDelete(snippet.id)}
+            className="flex-shrink-0 text-zinc-500 hover:text-red-400 transition-colors"
+            title="Delete snippet"
+          >
+            <TrashIcon />
           </button>
         </div>
 
-        <div className="flex items-center gap-3 mt-3 flex-wrap">
-          <LanguageBadge language={snippet.language} />
-          {snippet.tags.map((tag) => (
-            <span key={tag} className="text-xs font-mono text-zinc-500 bg-zinc-800 border border-zinc-700 px-2 py-0.5 rounded">
-              #{tag}
-            </span>
-          ))}
-          <span className="ml-auto text-xs font-mono text-zinc-600">{updatedDate}</span>
+        {/* Description */}
+        <input
+          className="w-full bg-transparent text-zinc-500 font-mono text-xs outline-none border-b border-transparent focus:border-zinc-700 transition-colors placeholder-zinc-700"
+          value={form.description}
+          onChange={(e) => handleChange("description", e.target.value)}
+          placeholder="Short description…"
+        />
+
+        {/* Language + tags + date */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <select
+            className="bg-zinc-800 border border-zinc-700 text-zinc-300 font-mono text-xs rounded px-2 py-1 outline-none focus:border-emerald-700 transition-colors cursor-pointer"
+            value={form.language}
+            onChange={(e) => handleChange("language", e.target.value)}
+          >
+            {LANGUAGES.map((l) => (
+              <option key={l} value={l}>{l}</option>
+            ))}
+          </select>
+
+          <LanguageBadge language={form.language} />
+
+          <input
+            className="flex-1 min-w-0 bg-transparent text-zinc-500 font-mono text-xs outline-none border-b border-transparent focus:border-zinc-700 transition-colors placeholder-zinc-700"
+            value={form.tagInput}
+            onChange={(e) => handleChange("tagInput", e.target.value)}
+            onBlur={handleTagBlur}
+            placeholder="tags, comma, separated"
+          />
+
+          <span className="ml-auto text-xs font-mono text-zinc-600 flex-shrink-0">{updatedDate}</span>
         </div>
       </div>
 
@@ -76,32 +211,41 @@ export default function SnippetDetail() {
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
         <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-800 bg-zinc-900 flex-shrink-0">
           <span className="text-xs font-mono text-zinc-500 uppercase tracking-widest">code</span>
-          <button
-            onClick={handleCopy}
-            className="flex items-center gap-1.5 text-xs font-mono text-zinc-400 hover:text-emerald-400 transition-colors px-2 py-1 rounded hover:bg-zinc-800"
-          >
-            <CopyIcon />
-            copy
-          </button>
+          <div className="flex items-center gap-2">
+            {isDirty && (
+              <span className="text-xs font-mono text-zinc-600">saving…</span>
+            )}
+            <button
+              onClick={handleCopy}
+              className="flex items-center gap-1.5 text-xs font-mono text-zinc-400 hover:text-emerald-400 transition-colors px-2 py-1 rounded hover:bg-zinc-800"
+            >
+              <CopyIcon />
+              copy
+            </button>
+          </div>
         </div>
-        <div className="flex-1 overflow-auto p-4">
-          <pre className="font-mono text-sm text-zinc-200 leading-relaxed whitespace-pre-wrap break-all">
-            <code>{snippet.code}</code>
-          </pre>
-        </div>
+        <textarea
+          className="flex-1 w-full p-4 bg-transparent font-mono text-sm text-zinc-200 leading-relaxed resize-none outline-none placeholder-zinc-700"
+          value={form.code}
+          onChange={(e) => handleChange("code", e.target.value)}
+          placeholder="// paste or type your snippet here"
+          spellCheck={false}
+        />
       </div>
 
       {/* Notes section */}
-      {snippet.notes && (
-        <div className="flex-shrink-0 border-t border-zinc-800 max-h-48 overflow-auto">
-          <div className="px-4 py-2 border-b border-zinc-800 bg-zinc-900">
-            <span className="text-xs font-mono text-zinc-500 uppercase tracking-widest">notes</span>
-          </div>
-          <div className="px-4 py-3">
-            <p className="text-sm text-zinc-400 font-mono leading-relaxed">{snippet.notes}</p>
-          </div>
+      <div className="flex-shrink-0 border-t border-zinc-800 h-40 flex flex-col">
+        <div className="px-4 py-2 border-b border-zinc-800 bg-zinc-900 flex-shrink-0">
+          <span className="text-xs font-mono text-zinc-500 uppercase tracking-widest">notes</span>
         </div>
-      )}
+        <textarea
+          className="flex-1 w-full px-4 py-3 bg-transparent font-mono text-sm text-zinc-400 leading-relaxed resize-none outline-none placeholder-zinc-700"
+          value={form.notes}
+          onChange={(e) => handleChange("notes", e.target.value)}
+          placeholder="markdown notes…"
+          spellCheck={false}
+        />
+      </div>
     </div>
   );
 }

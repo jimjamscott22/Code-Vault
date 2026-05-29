@@ -1,3 +1,4 @@
+import DeleteModal from "./DeleteModal";
 import Sidebar from "./Sidebar";
 import SnippetDetail from "./SnippetDetail";
 
@@ -13,6 +14,8 @@ export default function Layout() {
       <div className="flex-1 min-w-0 h-full overflow-hidden">
         <SnippetDetail />
       </div>
+
+      <DeleteModal />
     </div>
   );
 }

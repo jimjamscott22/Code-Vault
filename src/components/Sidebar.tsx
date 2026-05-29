@@ -9,18 +9,41 @@ function SearchIcon() {
   );
 }
 
-export default function Sidebar() {
-  const { searchQuery, setSearchQuery, activeTag, setActiveTag, activeLanguage, setActiveLanguage, allTags, snippets } = useVaultStore();
-  const tags = allTags();
+function PlusIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+    </svg>
+  );
+}
 
+export default function Sidebar() {
+  const {
+    searchQuery, setSearchQuery,
+    activeTag, setActiveTag,
+    activeLanguage, setActiveLanguage,
+    allTags, snippets, createSnippet,
+  } = useVaultStore();
+
+  const tags = allTags();
   const languages = Array.from(new Set(snippets.map((s) => s.language))).sort();
 
   return (
     <div className="flex flex-col h-full bg-zinc-900 border-r border-zinc-800">
-      {/* App header */}
-      <div className="px-4 py-4 border-b border-zinc-800 flex-shrink-0">
-        <h1 className="text-emerald-400 font-mono font-bold text-lg tracking-tight">CodeVault</h1>
-        <p className="text-zinc-600 font-mono text-xs mt-0.5">terminal memory trap</p>
+      {/* App header + new button */}
+      <div className="px-4 py-4 border-b border-zinc-800 flex-shrink-0 flex items-center justify-between">
+        <div>
+          <h1 className="text-emerald-400 font-mono font-bold text-lg tracking-tight">CodeVault</h1>
+          <p className="text-zinc-600 font-mono text-xs mt-0.5">terminal memory trap</p>
+        </div>
+        <button
+          onClick={createSnippet}
+          className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-mono bg-emerald-900 border border-emerald-700 text-emerald-300 rounded hover:bg-emerald-800 transition-colors"
+          title="New snippet (Ctrl+N)"
+        >
+          <PlusIcon />
+          new
+        </button>
       </div>
 
       {/* Search */}
@@ -43,43 +66,54 @@ export default function Sidebar() {
       </div>
 
       {/* Language filter */}
-      <div className="px-3 py-3 border-b border-zinc-800 flex-shrink-0">
-        <p className="text-zinc-600 font-mono text-xs uppercase tracking-widest mb-2">Language</p>
-        <div className="flex flex-wrap gap-1.5">
-          {languages.map((lang) => (
-            <button
-              key={lang}
-              onClick={() => setActiveLanguage(activeLanguage === lang ? null : lang)}
-              className={`text-xs font-mono px-2 py-0.5 rounded transition-colors ${
-                activeLanguage === lang
-                  ? "bg-emerald-800 text-emerald-200 border border-emerald-600"
-                  : "bg-zinc-800 text-zinc-400 border border-zinc-700 hover:border-zinc-500 hover:text-zinc-200"
-              }`}
-            >
-              {lang}
-            </button>
-          ))}
+      {languages.length > 0 && (
+        <div className="px-3 py-3 border-b border-zinc-800 flex-shrink-0">
+          <p className="text-zinc-600 font-mono text-xs uppercase tracking-widest mb-2">Language</p>
+          <div className="flex flex-wrap gap-1.5">
+            {languages.map((lang) => (
+              <button
+                key={lang}
+                onClick={() => setActiveLanguage(activeLanguage === lang ? null : lang)}
+                className={`text-xs font-mono px-2 py-0.5 rounded transition-colors ${
+                  activeLanguage === lang
+                    ? "bg-emerald-800 text-emerald-200 border border-emerald-600"
+                    : "bg-zinc-800 text-zinc-400 border border-zinc-700 hover:border-zinc-500 hover:text-zinc-200"
+                }`}
+              >
+                {lang}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Tag filter */}
-      <div className="px-3 py-3 border-b border-zinc-800 flex-shrink-0">
-        <p className="text-zinc-600 font-mono text-xs uppercase tracking-widest mb-2">Tags</p>
-        <div className="flex flex-wrap gap-1.5">
-          {tags.map((tag) => (
-            <button
-              key={tag}
-              onClick={() => setActiveTag(activeTag === tag ? null : tag)}
-              className={`text-xs font-mono px-2 py-0.5 rounded transition-colors ${
-                activeTag === tag
-                  ? "bg-emerald-800 text-emerald-200 border border-emerald-600"
-                  : "bg-zinc-800 text-zinc-400 border border-zinc-700 hover:border-zinc-500 hover:text-zinc-200"
-              }`}
-            >
-              #{tag}
-            </button>
-          ))}
+      {tags.length > 0 && (
+        <div className="px-3 py-3 border-b border-zinc-800 flex-shrink-0">
+          <p className="text-zinc-600 font-mono text-xs uppercase tracking-widest mb-2">Tags</p>
+          <div className="flex flex-wrap gap-1.5">
+            {tags.map((tag) => (
+              <button
+                key={tag}
+                onClick={() => setActiveTag(activeTag === tag ? null : tag)}
+                className={`text-xs font-mono px-2 py-0.5 rounded transition-colors ${
+                  activeTag === tag
+                    ? "bg-emerald-800 text-emerald-200 border border-emerald-600"
+                    : "bg-zinc-800 text-zinc-400 border border-zinc-700 hover:border-zinc-500 hover:text-zinc-200"
+                }`}
+              >
+                #{tag}
+              </button>
+            ))}
+          </div>
         </div>
+      )}
+
+      {/* Snippet count */}
+      <div className="px-4 py-2 border-b border-zinc-800 flex-shrink-0">
+        <span className="text-zinc-600 font-mono text-xs">
+          {snippets.length} snippet{snippets.length !== 1 ? "s" : ""}
+        </span>
       </div>
 
       {/* Snippet list — takes remaining height */}
