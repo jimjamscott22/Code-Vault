@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
+import { LANGUAGES } from "../lib/languages";
 import { useVaultStore } from "../lib/store";
+import { toast } from "../lib/toast";
 import type { Snippet } from "../lib/types";
 import CodeEditor from "./CodeEditor";
 import LanguageBadge from "./LanguageBadge";
@@ -40,15 +42,6 @@ function StarIcon({ filled }: { filled: boolean }) {
 }
 
 // ---------------------------------------------------------------------------
-// Languages list for the select
-// ---------------------------------------------------------------------------
-
-const LANGUAGES = [
-  "bash", "css", "html", "javascript", "json", "markdown",
-  "nginx", "python", "rust", "sql", "toml", "typescript", "yaml",
-];
-
-// ---------------------------------------------------------------------------
 // Form state helpers
 // ---------------------------------------------------------------------------
 
@@ -78,6 +71,7 @@ function snippetToForm(s: Snippet): FormState {
 
 export default function SnippetDetail() {
   const snippet = useVaultStore((s) => s.selectedSnippet());
+  const notesVisible = useVaultStore((s) => s.notesVisible);
   const { updateSnippet, updateTags, toggleFavorite, confirmDelete } = useVaultStore();
 
   const [form, setForm] = useState<FormState | null>(null);
@@ -114,6 +108,32 @@ export default function SnippetDetail() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form, isDirty]);
 
+  // Immediate save (Ctrl+S) — flush the pending debounce and persist now
+  const saveNow = useCallback(() => {
+    if (!snippet || !form) return;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    updateSnippet(snippet.id, {
+      title: form.title,
+      description: form.description,
+      language: form.language,
+      code: form.code,
+      notes: form.notes,
+    });
+    setIsDirty(false);
+    toast.success("Saved");
+  }, [snippet, form, updateSnippet]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        saveNow();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [saveNow]);
+
   const handleChange = (field: keyof FormState, value: string) => {
     setForm((prev) => prev ? { ...prev, [field]: value } : prev);
     setIsDirty(true);
@@ -131,7 +151,9 @@ export default function SnippetDetail() {
 
   const handleCopy = () => {
     if (!form) return;
-    writeText(form.code).catch(() => {});
+    writeText(form.code)
+      .then(() => toast.success("Code copied to clipboard"))
+      .catch(() => toast.error("Failed to copy"));
   };
 
   if (!snippet || !form) {
@@ -236,20 +258,22 @@ export default function SnippetDetail() {
         </div>
       </div>
 
-      {/* Notes section */}
-      <div className="flex-shrink-0 border-t border-zinc-800 h-40 flex flex-col">
-        <div className="px-4 py-2 border-b border-zinc-800 bg-zinc-900 flex-shrink-0">
-          <span className="text-xs font-mono text-zinc-500 uppercase tracking-widest">notes</span>
+      {/* Notes section — toggle with Ctrl+/ */}
+      {notesVisible && (
+        <div className="flex-shrink-0 border-t border-zinc-800 h-40 flex flex-col">
+          <div className="px-4 py-2 border-b border-zinc-800 bg-zinc-900 flex-shrink-0">
+            <span className="text-xs font-mono text-zinc-500 uppercase tracking-widest">notes</span>
+          </div>
+          <div className="flex-1 overflow-auto">
+            <CodeEditor
+              value={form.notes}
+              onChange={(v) => handleChange("notes", v)}
+              language="markdown"
+              placeholder="markdown notes…"
+            />
+          </div>
         </div>
-        <div className="flex-1 overflow-auto">
-          <CodeEditor
-            value={form.notes}
-            onChange={(v) => handleChange("notes", v)}
-            language="markdown"
-            placeholder="markdown notes…"
-          />
-        </div>
-      </div>
+      )}
     </div>
   );
 }

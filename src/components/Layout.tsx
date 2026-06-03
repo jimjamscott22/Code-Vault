@@ -1,6 +1,10 @@
+import CommandPalette from "./CommandPalette";
 import DeleteModal from "./DeleteModal";
+import Settings from "./Settings";
+import Shortcuts from "./Shortcuts";
 import Sidebar from "./Sidebar";
 import SnippetDetail from "./SnippetDetail";
+import Toaster from "./Toaster";
 
 export default function Layout() {
   return (
@@ -15,7 +19,12 @@ export default function Layout() {
         <SnippetDetail />
       </div>
 
+      {/* Global overlays + handlers */}
       <DeleteModal />
+      <CommandPalette />
+      <Settings />
+      <Toaster />
+      <Shortcuts />
     </div>
   );
 }

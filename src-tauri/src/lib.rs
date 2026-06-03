@@ -10,6 +10,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let conn = db::init_db(app.handle()).expect("failed to initialise database");
             app.manage(DbState(Mutex::new(conn)));
@@ -25,6 +26,10 @@ pub fn run() {
             commands::list_tags,
             commands::set_snippet_tags,
             commands::search_snippets,
+            commands::get_data_dir,
+            commands::export_vault,
+            commands::import_vault,
+            commands::import_markdown,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

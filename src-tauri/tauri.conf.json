@@ -26,6 +26,9 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "category": "DeveloperTool",
+    "shortDescription": "Local-first desktop snippet manager",
+    "longDescription": "CodeVault stores reusable code, shell one-liners, configs, and commands with syntax highlighting, tags, and markdown notes in a local SQLite database. No accounts, no cloud.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

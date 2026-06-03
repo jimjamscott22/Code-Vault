@@ -34,3 +34,12 @@ export interface SnippetPatch {
   notes?: string;
   favorite?: boolean;
 }
+
+export type ImportStrategy = "skip" | "overwrite" | "rename";
+
+export interface ImportResult {
+  imported: number;
+  overwritten: number;
+  skipped: number;
+  renamed: number;
+}

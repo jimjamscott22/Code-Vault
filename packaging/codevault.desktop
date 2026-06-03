@@ -1,0 +1,17 @@
+[Desktop Entry]
+Type=Application
+Name=CodeVault
+GenericName=Snippet Manager
+Comment=Local-first desktop snippet manager
+Exec=codevault %U
+Icon=codevault
+Terminal=false
+Categories=Development;Utility;
+Keywords=snippets;code;developer;vault;
+
+# The .deb produced by `pnpm tauri build` already installs a desktop entry and
+# icon. This standalone file is for AppImage / manual installs: adjust `Exec`
+# to the absolute path of your binary (or place the AppImage on your PATH as
+# `codevault`), copy this file to ~/.local/share/applications/, and install the
+# icon with e.g.
+#   cp src-tauri/icons/128x128.png ~/.local/share/icons/codevault.png

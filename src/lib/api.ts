@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { NewSnippet, Snippet, SnippetPatch } from "./types";
+import type { ImportResult, ImportStrategy, NewSnippet, Snippet, SnippetPatch } from "./types";
 
 export const api = {
   listSnippets: () =>
@@ -28,4 +28,16 @@ export const api = {
 
   searchSnippets: (query: string) =>
     invoke<Snippet[]>("search_snippets", { query }),
+
+  getDataDir: () =>
+    invoke<string>("get_data_dir"),
+
+  exportVault: (path: string) =>
+    invoke<void>("export_vault", { path }),
+
+  importVault: (path: string, strategy: ImportStrategy) =>
+    invoke<ImportResult>("import_vault", { path, strategy }),
+
+  importMarkdown: (path: string) =>
+    invoke<Snippet>("import_markdown", { path }),
 };

@@ -61,6 +61,29 @@ pnpm tauri build
 
 Produces a `.deb` and `.AppImage` in `src-tauri/target/release/bundle/`.
 
+## Keyboard shortcuts
+
+| Shortcut | Action |
+| --- | --- |
+| `Ctrl/Cmd+N` | New snippet |
+| `Ctrl/Cmd+K` | Command palette |
+| `Ctrl/Cmd+F` | Focus search |
+| `Ctrl/Cmd+S` | Save now (flush autosave) |
+| `Ctrl/Cmd+D` | Toggle favourite |
+| `Ctrl/Cmd+/` | Toggle notes pane |
+| `Ctrl/Cmd+,` | Open settings |
+| `Esc` | Close palette / settings |
+
+## Import / export
+
+Open **Settings** (gear icon, top-left, or `Ctrl+,`):
+
+- **Export vault (JSON)** — writes the whole vault to a JSON file.
+- **Import vault (JSON)** — merges a JSON export; on a title conflict choose *rename*, *skip*, or *overwrite*.
+- **Import Markdown** — creates a snippet from a `.md` file; a `---` front-matter block supplies `title`, `language`, and comma-separated `tags`, and the body becomes the snippet code.
+
+A dated backup of `vault.db` is taken on each launch (last 7 kept) in the data directory.
+
 ## Data location
 
 - Linux: `~/.local/share/codevault/vault.db`
@@ -80,12 +103,12 @@ codevault copy <id>
 
 | Phase | Goal | Status |
 | --- | --- | --- |
-| 1 | Tauri skeleton — app launches | in progress |
-| 2 | Static UI — three-pane layout with mock data | planned |
-| 3 | SQLite storage — real CRUD | planned |
-| 4 | CodeMirror editor — syntax highlighting | planned |
-| 5 | Search & tags — filter and find fast | planned |
-| 6 | Polish — shortcuts, CLI, import/export, `.deb` | planned |
+| 1 | Tauri skeleton — app launches | done |
+| 2 | Static UI — three-pane layout with mock data | done |
+| 3 | SQLite storage — real CRUD | done |
+| 4 | CodeMirror editor — syntax highlighting | done |
+| 5 | Search & tags — filter and find fast | done |
+| 6 | Polish — shortcuts, CLI, import/export, `.deb` | in progress |
 
 ## License
 

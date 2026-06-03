@@ -1,7 +1,7 @@
 use std::sync::Mutex;
 
-use crate::db::{self, NewSnippet, Snippet, SnippetPatch};
-use tauri::State;
+use crate::db::{self, ImportResult, NewSnippet, Snippet, SnippetPatch};
+use tauri::{AppHandle, Manager, State};
 
 pub struct DbState(pub Mutex<rusqlite::Connection>);
 
@@ -71,4 +71,37 @@ pub fn set_snippet_tags(
 pub fn search_snippets(state: State<'_, DbState>, query: String) -> CmdResult<Vec<Snippet>> {
     let conn = state.0.lock().map_err(|_| "db lock poisoned")?;
     db::search_snippets(&conn, &query).map_err(e)
+}
+
+#[tauri::command]
+pub fn get_data_dir(app: AppHandle) -> CmdResult<String> {
+    let dir = app.path().app_data_dir().map_err(e)?;
+    Ok(dir.to_string_lossy().into_owned())
+}
+
+#[tauri::command]
+pub fn export_vault(state: State<'_, DbState>, path: String) -> CmdResult<()> {
+    let json = {
+        let conn = state.0.lock().map_err(|_| "db lock poisoned")?;
+        db::export_json(&conn).map_err(e)?
+    };
+    std::fs::write(&path, json).map_err(e)
+}
+
+#[tauri::command]
+pub fn import_vault(
+    state: State<'_, DbState>,
+    path: String,
+    strategy: String,
+) -> CmdResult<ImportResult> {
+    let json = std::fs::read_to_string(&path).map_err(e)?;
+    let conn = state.0.lock().map_err(|_| "db lock poisoned")?;
+    db::import_vault_json(&conn, &json, &strategy).map_err(e)
+}
+
+#[tauri::command]
+pub fn import_markdown(state: State<'_, DbState>, path: String) -> CmdResult<Snippet> {
+    let content = std::fs::read_to_string(&path).map_err(e)?;
+    let conn = state.0.lock().map_err(|_| "db lock poisoned")?;
+    db::import_markdown(&conn, &content).map_err(e)
 }

@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import { api } from "./api";
+import { toast } from "./toast";
+import { useSettingsStore } from "./settings";
 import type { Snippet, SnippetPatch } from "./types";
 
 interface VaultState {
@@ -11,6 +13,11 @@ interface VaultState {
   isLoading: boolean;
   deleteConfirmId: number | null;
 
+  // UI state
+  paletteOpen: boolean;
+  notesVisible: boolean;
+  settingsOpen: boolean;
+
   // lifecycle
   loadSnippets: () => Promise<void>;
 
@@ -19,6 +26,12 @@ interface VaultState {
   setSearchQuery: (q: string) => void;
   setActiveTag: (tag: string | null) => void;
   setActiveLanguage: (lang: string | null) => void;
+
+  // UI toggles
+  setPaletteOpen: (open: boolean) => void;
+  togglePalette: () => void;
+  toggleNotes: () => void;
+  setSettingsOpen: (open: boolean) => void;
 
   // CRUD
   createSnippet: () => Promise<void>;
@@ -42,6 +55,9 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   activeLanguage: null,
   isLoading: false,
   deleteConfirmId: null,
+  paletteOpen: false,
+  notesVisible: true,
+  settingsOpen: false,
 
   loadSnippets: async () => {
     set({ isLoading: true });
@@ -50,6 +66,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
       set({ snippets, selectedId: snippets[0]?.id ?? null, isLoading: false });
     } catch (err) {
       console.error("loadSnippets:", err);
+      toast.error(`Failed to load snippets: ${err}`);
       set({ isLoading: false });
     }
   },
@@ -59,12 +76,17 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   setActiveTag: (tag) => set({ activeTag: tag }),
   setActiveLanguage: (lang) => set({ activeLanguage: lang }),
 
+  setPaletteOpen: (open) => set({ paletteOpen: open }),
+  togglePalette: () => set((s) => ({ paletteOpen: !s.paletteOpen })),
+  toggleNotes: () => set((s) => ({ notesVisible: !s.notesVisible })),
+  setSettingsOpen: (open) => set({ settingsOpen: open }),
+
   createSnippet: async () => {
     try {
       const snippet = await api.createSnippet({
         title: "Untitled Snippet",
         description: "",
-        language: "bash",
+        language: useSettingsStore.getState().defaultLanguage,
         code: "",
         notes: "",
         favorite: false,
@@ -73,6 +95,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
       set((s) => ({ snippets: [snippet, ...s.snippets], selectedId: snippet.id }));
     } catch (err) {
       console.error("createSnippet:", err);
+      toast.error(`Failed to create snippet: ${err}`);
     }
   },
 
@@ -84,6 +107,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
       }));
     } catch (err) {
       console.error("updateSnippet:", err);
+      toast.error(`Failed to save snippet: ${err}`);
     }
   },
 
@@ -97,6 +121,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
       }));
     } catch (err) {
       console.error("updateTags:", err);
+      toast.error(`Failed to update tags: ${err}`);
     }
   },
 
@@ -110,6 +135,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
       }));
     } catch (err) {
       console.error("toggleFavorite:", err);
+      toast.error(`Failed to toggle favourite: ${err}`);
     }
   },
 
@@ -124,8 +150,10 @@ export const useVaultStore = create<VaultState>((set, get) => ({
           s.selectedId === id ? (snippets[0]?.id ?? null) : s.selectedId;
         return { snippets, selectedId, deleteConfirmId: null };
       });
+      toast.success("Snippet deleted");
     } catch (err) {
       console.error("deleteSnippet:", err);
+      toast.error(`Failed to delete snippet: ${err}`);
     }
   },
 

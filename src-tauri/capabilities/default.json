@@ -6,6 +6,8 @@
   "permissions": [
     "core:default",
     "opener:default",
-    "clipboard-manager:default"
+    "opener:allow-open-path",
+    "clipboard-manager:default",
+    "dialog:default"
   ]
 }
