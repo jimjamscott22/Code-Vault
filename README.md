@@ -110,6 +110,8 @@ codevault copy <id>
 | 5 | Search & tags — filter and find fast | done |
 | 6 | Polish — shortcuts, CLI, import/export, `.deb` | in progress |
 
+For a reusable visual roadmap format, see [`docs/PROJECT_TIMELINE_TEMPLATE.md`](docs/PROJECT_TIMELINE_TEMPLATE.md).
+
 ## License
 
 MIT

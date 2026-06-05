@@ -1,6 +1,6 @@
 use std::sync::Mutex;
 
-use crate::db::{self, ImportResult, NewSnippet, Snippet, SnippetPatch};
+use crate::db::{self, ImportResult, MarkdownDirResult, NewSnippet, Snippet, SnippetPatch};
 use tauri::{AppHandle, Manager, State};
 
 pub struct DbState(pub Mutex<rusqlite::Connection>);
@@ -104,4 +104,33 @@ pub fn import_markdown(state: State<'_, DbState>, path: String) -> CmdResult<Sni
     let content = std::fs::read_to_string(&path).map_err(e)?;
     let conn = state.0.lock().map_err(|_| "db lock poisoned")?;
     db::import_markdown(&conn, &content).map_err(e)
+}
+
+/// Import every `.md` / `.markdown` file in a directory (non-recursive).
+/// Files that can't be read or parsed are counted as failures rather than
+/// aborting the whole batch.
+#[tauri::command]
+pub fn import_markdown_dir(state: State<'_, DbState>, path: String) -> CmdResult<MarkdownDirResult> {
+    let entries = std::fs::read_dir(&path).map_err(e)?;
+    let conn = state.0.lock().map_err(|_| "db lock poisoned")?;
+    let mut result = MarkdownDirResult::default();
+    for entry in entries.flatten() {
+        let p = entry.path();
+        let is_md = p
+            .extension()
+            .and_then(|x| x.to_str())
+            .map(|x| x.eq_ignore_ascii_case("md") || x.eq_ignore_ascii_case("markdown"))
+            .unwrap_or(false);
+        if !is_md || !p.is_file() {
+            continue;
+        }
+        match std::fs::read_to_string(&p) {
+            Ok(content) => match db::import_markdown(&conn, &content) {
+                Ok(_) => result.imported += 1,
+                Err(_) => result.failed += 1,
+            },
+            Err(_) => result.failed += 1,
+        }
+    }
+    Ok(result)
 }

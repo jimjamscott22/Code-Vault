@@ -1,5 +1,4 @@
 import CodeMirror from "@uiw/react-codemirror";
-import { oneDark } from "@codemirror/theme-one-dark";
 import { css } from "@codemirror/lang-css";
 import { html } from "@codemirror/lang-html";
 import { javascript } from "@codemirror/lang-javascript";
@@ -9,6 +8,8 @@ import { rust } from "@codemirror/lang-rust";
 import { sql } from "@codemirror/lang-sql";
 import { yaml } from "@codemirror/lang-yaml";
 import type { Extension } from "@codemirror/state";
+import { useSettingsStore } from "../lib/settings";
+import { darkEditorTheme, lightEditorTheme } from "../lib/editorTheme";
 
 const LANG_MAP: Record<string, () => Extension> = {
   bash:       () => [],
@@ -43,6 +44,7 @@ export default function CodeEditor({
   minHeight = "100%",
   maxHeight,
 }: Props) {
+  const theme = useSettingsStore((s) => s.theme);
   const langExt = (LANG_MAP[language] ?? (() => []))();
   const extensions: Extension[] = Array.isArray(langExt) ? langExt : [langExt];
 
@@ -50,7 +52,7 @@ export default function CodeEditor({
     <CodeMirror
       value={value}
       onChange={onChange}
-      theme={oneDark}
+      theme={theme === "light" ? lightEditorTheme : darkEditorTheme}
       extensions={extensions}
       placeholder={placeholder}
       style={{ minHeight, maxHeight, overflow: "auto" }}

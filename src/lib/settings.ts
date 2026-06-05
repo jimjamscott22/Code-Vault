@@ -5,12 +5,16 @@ import { create } from "zustand";
 
 const STORAGE_KEY = "codevault.settings";
 
+export type Theme = "dark" | "light";
+
 interface Settings {
   defaultLanguage: string;
+  theme: Theme;
 }
 
 const DEFAULTS: Settings = {
   defaultLanguage: "bash",
+  theme: "dark",
 };
 
 function load(): Settings {
@@ -22,14 +26,31 @@ function load(): Settings {
   }
 }
 
-interface SettingsState extends Settings {
-  setDefaultLanguage: (lang: string) => void;
+// Toggle the root `.light` class so the CSS-variable ramp (index.css) flips the
+// whole app, and `darkMode: "class"` Tailwind variants resolve correctly.
+export function applyTheme(theme: Theme) {
+  const root = document.documentElement;
+  root.classList.toggle("light", theme === "light");
+  root.classList.toggle("dark", theme === "dark");
 }
 
+interface SettingsState extends Settings {
+  setDefaultLanguage: (lang: string) => void;
+  setTheme: (theme: Theme) => void;
+}
+
+const initial = load();
+applyTheme(initial.theme); // apply persisted theme before first paint
+
 export const useSettingsStore = create<SettingsState>((set, get) => ({
-  ...load(),
+  ...initial,
   setDefaultLanguage: (defaultLanguage) => {
     set({ defaultLanguage });
+    persist(get());
+  },
+  setTheme: (theme) => {
+    applyTheme(theme);
+    set({ theme });
     persist(get());
   },
 }));
@@ -38,7 +59,7 @@ function persist(state: Settings) {
   try {
     localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ defaultLanguage: state.defaultLanguage }),
+      JSON.stringify({ defaultLanguage: state.defaultLanguage, theme: state.theme }),
     );
   } catch {
     // ignore quota / availability errors — settings are best-effort

@@ -371,6 +371,13 @@ pub struct ImportResult {
     pub renamed: usize,
 }
 
+/// Result of importing every Markdown file in a directory.
+#[derive(Debug, Serialize, Default)]
+pub struct MarkdownDirResult {
+    pub imported: usize,
+    pub failed: usize,
+}
+
 /// A snippet as it arrives from an import file — every field but the title is
 /// optional so partial / hand-written JSON still loads.
 #[derive(Debug, Deserialize)]

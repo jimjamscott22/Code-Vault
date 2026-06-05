@@ -88,6 +88,32 @@ export default function Settings() {
     }
   };
 
+  const handleImportMarkdownDir = async () => {
+    try {
+      const path = await open({
+        title: "Import Markdown folder",
+        directory: true,
+        multiple: false,
+      });
+      if (typeof path !== "string") return;
+      setBusy(true);
+      const r = await api.importMarkdownDir(path);
+      await loadSnippets();
+      if (r.imported === 0 && r.failed === 0) {
+        toast.error("No .md files found in that folder");
+      } else {
+        toast.success(
+          `Imported ${r.imported} Markdown file${r.imported === 1 ? "" : "s"}` +
+            (r.failed ? `, ${r.failed} failed` : ""),
+        );
+      }
+    } catch (err) {
+      toast.error(`Import failed: ${err}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
@@ -124,11 +150,12 @@ export default function Settings() {
           </Section>
 
           {/* Import / export */}
-          <Section title="Import / export" hint="Full-vault JSON, or a single Markdown file with front-matter.">
+          <Section title="Import / export" hint="Full-vault JSON, a single Markdown file, or a whole folder of Markdown files (front-matter sets title/language/tags).">
             <div className="space-y-3">
               <div className="flex items-center gap-2 flex-wrap">
                 <Btn onClick={handleExport} disabled={busy}>Export vault (JSON)</Btn>
                 <Btn onClick={handleImportMarkdown} disabled={busy}>Import Markdown</Btn>
+                <Btn onClick={handleImportMarkdownDir} disabled={busy}>Import Markdown folder</Btn>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
                 <Btn onClick={handleImportJson} disabled={busy}>Import vault (JSON)</Btn>

@@ -43,3 +43,8 @@ export interface ImportResult {
   skipped: number;
   renamed: number;
 }
+
+export interface MarkdownDirResult {
+  imported: number;
+  failed: number;
+}

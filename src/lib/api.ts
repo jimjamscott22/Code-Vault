@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { ImportResult, ImportStrategy, NewSnippet, Snippet, SnippetPatch } from "./types";
+import type { ImportResult, ImportStrategy, MarkdownDirResult, NewSnippet, Snippet, SnippetPatch } from "./types";
 
 export const api = {
   listSnippets: () =>
@@ -40,4 +40,7 @@ export const api = {
 
   importMarkdown: (path: string) =>
     invoke<Snippet>("import_markdown", { path }),
+
+  importMarkdownDir: (path: string) =>
+    invoke<MarkdownDirResult>("import_markdown_dir", { path }),
 };
