@@ -1,0 +1,3 @@
+[workspace]
+members = ["src-tauri", "crates/codevault-core", "crates/codevault-cli"]
+resolver = "2"

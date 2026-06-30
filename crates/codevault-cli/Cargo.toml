@@ -1,0 +1,16 @@
+[package]
+name = "codevault-cli"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "codevault"
+path = "src/main.rs"
+
+[dependencies]
+codevault-core = { path = "../codevault-core" }
+clap = { version = "4", features = ["derive", "env"] }
+dirs = "5"
+arboard = "3"
+anyhow = "1"
+rusqlite = "0.31"
