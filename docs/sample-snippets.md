@@ -1,6 +1,6 @@
 # CodeVault Sample Snippets
 
-This file contains 15 useful code snippets and bash scripts ready to import into CodeVault using the **Import Markdown** feature.
+This file contains 31 useful code snippets and scripts ready to import into CodeVault using the **Import Markdown** feature.
 
 ---
 
@@ -378,6 +378,514 @@ crontab -l
 
 # Remove all cron jobs
 crontab -r
+```
+
+---
+
+---
+title: Node.js Project Setup (pnpm)
+language: bash
+tags: node, pnpm, setup
+---
+```bash
+# Create a new project
+pnpm init
+
+# Install dependencies
+pnpm add express zod
+pnpm add -D typescript @types/node tsx vitest
+
+# Initialize TypeScript config
+pnpm exec tsc --init
+
+# Run scripts defined in package.json
+pnpm dev
+pnpm build
+pnpm test
+
+# Clean install from lockfile (CI-friendly)
+pnpm install --frozen-lockfile
+
+# Update all deps to latest within semver range
+pnpm update
+```
+
+---
+
+---
+title: package.json Useful Scripts
+language: json
+tags: node, npm, package-json
+---
+```json
+{
+  "name": "my-app",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src --ext .ts,.tsx",
+    "format": "prettier --write .",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
+```
+
+---
+
+---
+title: Express.js REST API Starter
+language: javascript
+tags: node, express, api
+---
+```javascript
+import express from "express";
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.use(express.json());
+
+app.get("/health", (_req, res) => {
+  res.json({ status: "ok" });
+});
+
+app.get("/api/items", (_req, res) => {
+  res.json([{ id: 1, name: "Example" }]);
+});
+
+app.post("/api/items", (req, res) => {
+  const { name } = req.body;
+  if (!name) return res.status(400).json({ error: "name is required" });
+  res.status(201).json({ id: Date.now(), name });
+});
+
+app.use((err, _req, res, _next) => {
+  console.error(err);
+  res.status(500).json({ error: "Internal server error" });
+});
+
+app.listen(PORT, () => console.log(`Listening on http://localhost:${PORT}`));
+```
+
+---
+
+---
+title: Python Virtual Environment Commands
+language: bash
+tags: python, venv, setup
+---
+```bash
+# Create a virtual environment
+python3 -m venv .venv
+
+# Activate (Linux/macOS)
+source .venv/bin/activate
+
+# Activate (Windows PowerShell)
+# .venv\Scripts\Activate.ps1
+
+# Install deps
+pip install -r requirements.txt
+pip install requests httpx pydantic
+
+# Freeze current environment
+pip freeze > requirements.txt
+
+# Deactivate
+deactivate
+
+# Remove venv entirely
+rm -rf .venv
+```
+
+---
+
+---
+title: Python argparse CLI Template
+language: python
+tags: python, cli, argparse
+---
+```python
+#!/usr/bin/env python3
+import argparse
+import sys
+from pathlib import Path
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Process files in a directory")
+    parser.add_argument("input", type=Path, help="Input file or directory")
+    parser.add_argument("-o", "--output", type=Path, help="Output path")
+    parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
+    parser.add_argument("-n", "--dry-run", action="store_true", help="Show actions without writing")
+    args = parser.parse_args()
+
+    if not args.input.exists():
+        parser.error(f"not found: {args.input}")
+
+    if args.verbose:
+        print(f"Processing {args.input}")
+
+    # ... your logic here ...
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+```
+
+---
+
+---
+title: Python HTTP Requests with Retries
+language: python
+tags: python, http, requests
+---
+```python
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+session = requests.Session()
+retries = Retry(
+    total=3,
+    backoff_factor=0.5,
+    status_forcelist=[429, 500, 502, 503, 504],
+    allowed_methods=["GET", "POST", "PUT", "DELETE"],
+)
+session.mount("https://", HTTPAdapter(max_retries=retries))
+session.mount("http://", HTTPAdapter(max_retries=retries))
+
+def fetch_json(url: str, **kwargs) -> dict:
+    response = session.get(url, timeout=10, **kwargs)
+    response.raise_for_status()
+    return response.json()
+
+# Usage
+# data = fetch_json("https://api.example.com/users")
+```
+
+---
+
+---
+title: pyproject.toml Minimal
+language: toml
+tags: python, packaging, toml
+---
+```toml
+[project]
+name = "my-package"
+version = "0.1.0"
+description = "A small Python package"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "requests>=2.31",
+    "pydantic>=2.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "ruff>=0.4", "mypy>=1.10"]
+
+[project.scripts]
+my-cli = "my_package.cli:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+```
+
+---
+
+---
+title: HTML5 Semantic Boilerplate
+language: html
+tags: web, html, boilerplate
+---
+```html
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Page description for SEO" />
+    <title>My App</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header>
+      <nav aria-label="Main navigation">
+        <a href="/">Home</a>
+      </nav>
+    </header>
+
+    <main id="app">
+      <h1>Hello, world</h1>
+    </main>
+
+    <footer>
+      <p>&copy; 2026 My App</p>
+    </footer>
+
+    <script type="module" src="/main.js"></script>
+  </body>
+</html>
+```
+
+---
+
+---
+title: CSS Flexbox and Grid Patterns
+language: css
+tags: web, css, layout
+---
+```css
+/* Center content (flex) */
+.center-flex {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+/* Responsive card grid */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+/* Sticky footer layout */
+.page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+.page main {
+  flex: 1;
+}
+
+/* Truncate long text with ellipsis */
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+```
+
+---
+
+---
+title: Fetch API with TypeScript
+language: typescript
+tags: web, fetch, typescript
+---
+```typescript
+type ApiError = { error: string };
+
+async function api<T>(path: string, init?: RequestInit): Promise<T> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10_000);
+
+  try {
+    const res = await fetch(path, {
+      ...init,
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        ...init?.headers,
+      },
+    });
+
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as ApiError;
+      throw new Error(body.error ?? `HTTP ${res.status}`);
+    }
+
+    return (await res.json()) as T;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+// Usage: const user = await api<User>("/api/users/1");
+```
+
+---
+
+---
+title: Vite Config Template
+language: typescript
+tags: web, vite, bundler
+---
+```typescript
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import path from "node:path";
+
+export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+    },
+  },
+  server: {
+    port: 5173,
+    proxy: {
+      "/api": {
+        target: "http://localhost:3000",
+        changeOrigin: true,
+      },
+    },
+  },
+  build: {
+    sourcemap: true,
+    outDir: "dist",
+  },
+});
+```
+
+---
+
+---
+title: GitHub Actions CI Pipeline
+language: yaml
+tags: ci, github-actions, node
+---
+```yaml
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+```
+
+---
+
+---
+title: Common SQL Queries
+language: sql
+tags: sql, database, queries
+---
+```sql
+-- List tables (SQLite)
+SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name;
+
+-- Recent rows
+SELECT * FROM snippets ORDER BY updated_at DESC LIMIT 20;
+
+-- Count by category
+SELECT language, COUNT(*) AS total
+FROM snippets
+GROUP BY language
+ORDER BY total DESC;
+
+-- Find duplicates
+SELECT title, COUNT(*) AS cnt
+FROM snippets
+GROUP BY title
+HAVING cnt > 1;
+
+-- Safe update with transaction
+BEGIN;
+UPDATE snippets SET favorite = 1 WHERE id = ?;
+COMMIT;
+```
+
+---
+
+---
+title: curl API Testing Commands
+language: bash
+tags: api, curl, http, testing
+---
+```bash
+# GET with pretty JSON (requires jq)
+curl -s https://api.example.com/users | jq .
+
+# POST JSON body
+curl -s -X POST https://api.example.com/users \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Alice", "email": "alice@example.com"}'
+
+# Bearer token auth
+curl -s -H "Authorization: Bearer $TOKEN" https://api.example.com/me
+
+# Show response headers and status
+curl -i https://api.example.com/health
+
+# Follow redirects, fail on HTTP errors
+curl -fsSL https://api.example.com/download -o output.bin
+
+# Local dev server
+curl -X POST http://localhost:3000/api/items -H "Content-Type: application/json" -d '{"name":"test"}'
+```
+
+---
+
+---
+title: Environment Variables Template
+language: bash
+tags: env, config, devops
+---
+```bash
+# Copy to .env and fill in values — never commit secrets
+# cp .env.example .env
+
+# App
+NODE_ENV=development
+PORT=3000
+APP_URL=http://localhost:3000
+
+# Database
+DATABASE_URL=postgresql://user:pass@localhost:5432/mydb
+
+# Auth
+JWT_SECRET=change-me-in-production
+SESSION_SECRET=change-me-too
+
+# Third-party APIs
+STRIPE_API_KEY=sk_test_...
+OPENAI_API_KEY=sk-...
+
+# Feature flags
+DEBUG=true
+LOG_LEVEL=info
 ```
 
 ---
