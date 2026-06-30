@@ -40,23 +40,29 @@ The app is two halves bridged by Tauri's IPC. Understanding this boundary is the
 
 ```
 SQLite (vault.db)
-  └─ src-tauri/src/db.rs        repository fns + schema/migrations; owns the Snippet struct
+  └─ crates/codevault-core/     shared library crate — defines Snippet, NewSnippet, all db fns + migrations
+  └─ crates/codevault-cli/      standalone CLI binary (reads the same vault.db)
+  └─ src-tauri/src/db.rs        re-exports codevault_core::* + any Tauri-specific helpers
   └─ src-tauri/src/commands.rs  thin #[tauri::command] wrappers; lock the Mutex, map errors to String
   └─ src-tauri/src/lib.rs       registers DbState + invoke_handler (every new command must be listed here)
         ↕ Tauri IPC (invoke)
   └─ src/lib/api.ts             typed invoke() wrappers — one fn per Rust command, the ONLY IPC layer
   └─ src/lib/store.ts           Zustand store — app state, calls api.*, holds snippets[] in memory
+  └─ src/lib/settings.ts        second Zustand store — UI prefs only (theme, defaultLanguage), persisted to localStorage NOT SQLite
   └─ src/components/*           render from the store; mutations go back through the store
 ```
 
 Key conventions and gotchas when extending:
 
+- **Data model lives in `codevault-core`**: `Snippet`, `NewSnippet`, and all repository functions are defined in `crates/codevault-core/`. `src-tauri/src/db.rs` does `pub use codevault_core::*`. Schema changes and model changes go to the crate, not directly into the Tauri backend.
+- **Two Zustand stores, two backends**: `store.ts` is the primary app store backed by SQLite (snippets, tags, UI selection state). `settings.ts` is a separate store backed by `localStorage` (theme, default language). Don't put vault data in `settings.ts` or ephemeral UI prefs in `store.ts`.
 - **Adding a backend command requires four coordinated edits**: implement in `db.rs`, wrap in `commands.rs`, register in the `invoke_handler!` macro in `lib.rs`, and add a typed wrapper in `src/lib/api.ts`. Missing the `lib.rs` registration is the most common mistake — the command will fail at runtime, not compile time.
 - **Argument name casing across the IPC boundary**: Tauri auto-converts. JS passes camelCase keys (e.g. `tagNames`) and the Rust command receives snake_case params (`tag_names`). The invoke object keys in `api.ts` must match what Tauri expects — see `setSnippetTags` for the pattern.
 - **The DB connection is a single `Mutex<Connection>`** held in `DbState` (`commands.rs`) and managed by Tauri. Every command locks it. There is no connection pool; keep handlers short.
 - **`Snippet` is denormalized on read**: tags live in `tags`/`snippet_tags` join tables but are flattened into a `Vec<String>` via `GROUP_CONCAT` in the shared `SNIPPET_SELECT` constant (`db.rs`). Reuse `SNIPPET_SELECT` for any query returning snippets so the shape stays consistent with `row_to_snippet`.
 - **Schema changes go through `migrate()` in `db.rs`**: append a `(version, sql)` tuple to the `migrations` array; never edit an existing migration. Version is tracked in the `schema_version` table.
-- **Two filtering paths exist**: `store.ts`'s `filteredSnippets()` filters the in-memory list client-side (used by the live UI), while `db.rs`'s `search_snippets` does a SQL `LIKE` search. The UI currently relies on client-side filtering; keep them behaviorally aligned if you touch either.
+- **Two filtering paths exist**: `store.ts`'s `filteredSnippets()` filters the in-memory list client-side across three axes (`searchQuery`, `activeTag`, `activeLanguage`), while `db.rs`'s `search_snippets` does a SQL `LIKE` search. The UI currently relies on client-side filtering; keep them behaviorally aligned if you touch either.
+- **Existing export/import commands**: `export_vault`, `import_vault`, `import_markdown`, `import_markdown_dir`, and `get_data_dir` are already implemented end-to-end. Check `commands.rs` and `api.ts` before adding new vault I/O commands.
 - **Timestamps are Unix seconds (`i64`)**, set server-side via `now()` in `db.rs`. The frontend treats them as numbers.
 
 ### CodeMirror language support
