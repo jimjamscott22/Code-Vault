@@ -14,7 +14,7 @@ All frontend commands use `pnpm` (a `pnpm-lock.yaml` is committed — do not int
 
 - `pnpm install` — install frontend deps
 - `pnpm tauri dev` — run the full desktop app in dev (starts Vite on port 1420, then the Tauri shell). This is the primary way to run the app — `pnpm dev` alone only serves the frontend, which will fail on any `invoke()` call since the Rust backend isn't running.
-- `pnpm tauri build` — production build; produces `.deb` and `.AppImage` in `src-tauri/target/release/bundle/`
+- `pnpm tauri build` — production build; produces `.deb` and `.AppImage` in `target/release/bundle/` (repo-root Cargo workspace `target/`, not `src-tauri/target/`)
 - `pnpm build` — type-check (`tsc`) + Vite build of the frontend only
 - Rust backend: `cargo build` / `cargo check` / `cargo clippy` from inside `src-tauri/`
 
