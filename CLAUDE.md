@@ -29,6 +29,16 @@ sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget file \
   libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
 ```
 
+### Low-memory devices (e.g. Raspberry Pi)
+
+`cargo build` runs multiple `rustc` codegen units in parallel by default (one per core), which can spike memory enough to make a memory-constrained board like a Pi feel like it's freezing. If `pnpm tauri dev` or `pnpm tauri build` is causing that, cap the job count:
+
+```bash
+CARGO_BUILD_JOBS=2 pnpm tauri dev
+```
+
+Adjust `2` down further (or up, if it still has headroom) depending on available RAM/swap. This only needs to be set for Rust rebuilds — once compiled, the frontend can iterate at full speed.
+
 ## Architecture
 
 The app is two halves bridged by Tauri's IPC. Understanding this boundary is the key to working here.

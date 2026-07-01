@@ -124,7 +124,7 @@ export default function Sidebar() {
 
       {/* Tag filter */}
       {tags.length > 0 && (
-        <div className="px-3 py-3 border-b border-zinc-800 flex-shrink-0">
+        <div className="px-3 py-3 border-b border-zinc-800 flex-shrink-0 max-h-40 overflow-y-auto">
           <p className="text-zinc-600 font-mono text-xs uppercase tracking-widest mb-2">Tags</p>
           <div className="flex flex-wrap gap-1.5">
             {tags.map((tag) => (
