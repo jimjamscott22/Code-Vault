@@ -22,6 +22,14 @@ CodeVault stores code snippets with syntax highlighting, tags, and markdown note
 └──────────────────────┴──────────────────────────────────────────┘
 ```
 
+## Language color-coding
+
+Each snippet's title in the sidebar — and its small language badge — is tinted by language (bash is lime, Python is sky, Rust is orange, TypeScript is blue, HTML is red, and so on), so you can scan the list and spot what you're looking for by color alone before even reading the title.
+
+The whole palette lives in one place: [`src/lib/languageColors.ts`](src/lib/languageColors.ts). Its `getLanguageColors(language)` helper returns both the badge classes (`bg-*-900 text-*-300`) and the standalone sidebar title color (`text-*-400`) for a given language, and it's the *only* thing both `LanguageBadge` and `SnippetList` import for color. That means retuning a color later — say, `sql`'s purple starts feeling too close to another hue once you have more snippet variety — is a one-line edit in that file, and the badge chip and the title update together automatically. There's no risk of the badge and the title drifting out of sync over time.
+
+Languages without real CodeMirror grammar support (currently `markdown`) intentionally stay neutral gray, matching the "plain text, no highlighting" treatment they already get in `CodeEditor.tsx`'s `LANG_MAP`. Unknown or empty `language` values (e.g. legacy imports) fall back to the same neutral gray via a default entry, rather than erroring.
+
 ## Stack
 
 | Layer | Choice |

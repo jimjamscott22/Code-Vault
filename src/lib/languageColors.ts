@@ -14,7 +14,9 @@ const LANGUAGE_COLORS: Record<string, LanguageColorSet> = {
   javascript: { badge: "bg-yellow-900 text-yellow-300", text: "text-yellow-400" },
   python: { badge: "bg-sky-900 text-sky-300", text: "text-sky-400" },
   rust: { badge: "bg-orange-900 text-orange-300", text: "text-orange-400" },
-  bash: { badge: "bg-zinc-700 text-zinc-300", text: "text-zinc-300" },
+  // Distinct from the app's emerald accent (used for selection/CTAs) and from
+  // nginx's green, so an active bash row doesn't read as "already selected".
+  bash: { badge: "bg-lime-900 text-lime-300", text: "text-lime-400" },
   sql: { badge: "bg-purple-900 text-purple-300", text: "text-purple-400" },
   yaml: { badge: "bg-cyan-900 text-cyan-300", text: "text-cyan-400" },
   nginx: { badge: "bg-green-900 text-green-300", text: "text-green-400" },
