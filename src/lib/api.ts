@@ -38,9 +38,9 @@ export const api = {
   importVault: (path: string, strategy: ImportStrategy) =>
     invoke<ImportResult>("import_vault", { path, strategy }),
 
-  importMarkdown: (path: string) =>
-    invoke<Snippet>("import_markdown", { path }),
+  importMarkdown: (path: string, strategy: ImportStrategy) =>
+    invoke<ImportResult>("import_markdown", { path, strategy }),
 
-  importMarkdownDir: (path: string) =>
-    invoke<MarkdownDirResult>("import_markdown_dir", { path }),
+  importMarkdownDir: (path: string, strategy: ImportStrategy) =>
+    invoke<MarkdownDirResult>("import_markdown_dir", { path, strategy }),
 };

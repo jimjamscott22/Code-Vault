@@ -367,7 +367,19 @@ pub struct ImportResult {
 #[derive(Debug, Serialize, Default)]
 pub struct MarkdownDirResult {
     pub imported: usize,
-    pub failed: usize,
+    pub overwritten: usize,
+    pub skipped: usize,
+    pub renamed: usize,
+    pub failed_files: usize,
+}
+
+impl MarkdownDirResult {
+    pub fn add(&mut self, r: &ImportResult) {
+        self.imported += r.imported;
+        self.overwritten += r.overwritten;
+        self.skipped += r.skipped;
+        self.renamed += r.renamed;
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -414,32 +426,46 @@ pub fn import_vault_json(conn: &Connection, json: &str, strategy: &str) -> Resul
 
     let mut result = ImportResult::default();
     for snip in incoming {
-        let existing: Option<i64> = conn
-            .query_row(
-                "SELECT id FROM snippets WHERE title = ?1",
-                params![snip.title],
-                |r| r.get(0),
-            )
-            .ok();
-
-        match (existing, strategy) {
-            (Some(_), "skip") => result.skipped += 1,
-            (Some(id), "overwrite") => {
-                overwrite_snippet(conn, id, &snip)?;
-                result.overwritten += 1;
-            }
-            (Some(_), _) => {
-                let title = unique_title(conn, &snip.title)?;
-                insert_full(conn, &snip, &title)?;
-                result.renamed += 1;
-            }
-            (None, _) => {
-                insert_full(conn, &snip, &snip.title)?;
-                result.imported += 1;
-            }
-        }
+        apply_import_strategy(conn, &snip, strategy, &mut result)?;
     }
     Ok(result)
+}
+
+/// Insert `snip`, resolving a title collision per `strategy` ("skip",
+/// "overwrite", or anything else which falls back to "rename"), and record
+/// the outcome on `result`. Shared by JSON and Markdown import so both
+/// sources of multiple incoming snippets handle conflicts identically.
+fn apply_import_strategy(
+    conn: &Connection,
+    snip: &ImportSnippet,
+    strategy: &str,
+    result: &mut ImportResult,
+) -> Result<()> {
+    let existing: Option<i64> = conn
+        .query_row(
+            "SELECT id FROM snippets WHERE title = ?1",
+            params![snip.title],
+            |r| r.get(0),
+        )
+        .ok();
+
+    match (existing, strategy) {
+        (Some(_), "skip") => result.skipped += 1,
+        (Some(id), "overwrite") => {
+            overwrite_snippet(conn, id, snip)?;
+            result.overwritten += 1;
+        }
+        (Some(_), _) => {
+            let title = unique_title(conn, &snip.title)?;
+            insert_full(conn, snip, &title)?;
+            result.renamed += 1;
+        }
+        (None, _) => {
+            insert_full(conn, snip, &snip.title)?;
+            result.imported += 1;
+        }
+    }
+    Ok(())
 }
 
 fn insert_full(conn: &Connection, s: &ImportSnippet, title: &str) -> Result<i64> {
@@ -500,12 +526,49 @@ fn unique_title(conn: &Connection, base: &str) -> Result<String> {
     }
 }
 
-/// Import a single Markdown file. A leading `---` front-matter block supplies
-/// `title`, `language`, and comma-separated `tags`; the remaining body becomes
-/// the snippet's code. Missing front-matter falls back to sensible defaults.
-pub fn import_markdown(conn: &Connection, content: &str) -> Result<Snippet> {
-    let (front, body) = split_front_matter(content);
+/// Import a Markdown file that contains one *or more* snippets, applying the
+/// same skip/overwrite/rename conflict `strategy` as [`import_vault_json`].
+///
+/// Each snippet is delimited by its own front-matter block:
+///
+/// ```text
+/// ---
+/// title: My Snippet
+/// language: bash
+/// tags: linux, cleanup
+/// ---
+/// the code (optionally wrapped in a ```lang fenced block)
+/// ```
+///
+/// Everything up to the *next* front-matter block (or end of file) becomes
+/// that snippet's code; stray `---` horizontal rules between snippets (as
+/// produced by many Markdown renderers/editors) are ignored rather than
+/// treated as section boundaries. A single fenced code block wrapping the
+/// whole body has its fences stripped, and its info-string (e.g. ```bash)
+/// is used as a language fallback when `language:` is absent. A file with
+/// no recognisable front-matter imports as a single snippet with defaulted
+/// title/language, matching the previous single-snippet-only behaviour.
+pub fn import_markdown(conn: &Connection, content: &str, strategy: &str) -> Result<ImportResult> {
+    let blocks = split_markdown_blocks(content);
+    let mut result = ImportResult::default();
 
+    if blocks.is_empty() {
+        import_markdown_block(conn, "", content, strategy, &mut result)?;
+    } else {
+        for (front, body) in blocks {
+            import_markdown_block(conn, &front, &body, strategy, &mut result)?;
+        }
+    }
+    Ok(result)
+}
+
+fn import_markdown_block(
+    conn: &Connection,
+    front: &str,
+    body: &str,
+    strategy: &str,
+    result: &mut ImportResult,
+) -> Result<()> {
     let mut title = String::new();
     let mut language = String::new();
     let mut tags: Vec<String> = vec![];
@@ -534,31 +597,103 @@ pub fn import_markdown(conn: &Connection, content: &str) -> Result<Snippet> {
         title = "Imported snippet".to_string();
     }
 
-    let input = NewSnippet {
+    let (code, fence_lang) = strip_code_fence(body);
+    if language.is_empty() {
+        language = fence_lang.unwrap_or_default();
+    }
+
+    let snip = ImportSnippet {
         title,
         description: String::new(),
         language,
-        code: body.trim().to_string(),
+        code,
         notes: String::new(),
         favorite: false,
         tags,
+        created_at: None,
+        updated_at: None,
     };
-    create_snippet(conn, input)
+    apply_import_strategy(conn, &snip, strategy, result)
 }
 
-fn split_front_matter(content: &str) -> (&str, &str) {
-    let trimmed = content.trim_start();
-    let Some(rest) = trimmed.strip_prefix("---") else {
-        return ("", content);
-    };
-    if let Some(end) = rest.find("\n---") {
-        let front = &rest[..end];
-        let after = &rest[end + 4..];
-        let body = after.strip_prefix('\n').unwrap_or(after);
-        (front, body)
-    } else {
-        ("", content)
+const FRONT_MATTER_KEYS: [&str; 4] = ["title", "language", "lang", "tags"];
+
+/// Scan `content` for front-matter blocks (`---` / key: value lines / `---`)
+/// and return each one's `(front_matter, body)` pair, where `body` is the
+/// text up to the start of the next front-matter block or EOF. A `---` pair
+/// only counts as front matter if it contains at least one recognised key;
+/// this distinguishes real front matter from a plain `---` horizontal rule.
+/// Returns an empty `Vec` if no front-matter block is found at all.
+fn split_markdown_blocks(content: &str) -> Vec<(String, String)> {
+    let lines: Vec<&str> = content.lines().collect();
+    let dash_lines: Vec<usize> = lines
+        .iter()
+        .enumerate()
+        .filter(|(_, l)| l.trim() == "---")
+        .map(|(i, _)| i)
+        .collect();
+
+    let mut spans: Vec<(usize, usize)> = vec![];
+    let mut i = 0;
+    while i + 1 < dash_lines.len() {
+        let open = dash_lines[i];
+        let close = dash_lines[i + 1];
+        let is_front_matter = lines[open + 1..close].iter().any(|l| {
+            l.split_once(':')
+                .map(|(key, _)| FRONT_MATTER_KEYS.contains(&key.trim().to_lowercase().as_str()))
+                .unwrap_or(false)
+        });
+        if is_front_matter {
+            spans.push((open, close));
+            i += 2;
+        } else {
+            i += 1;
+        }
     }
+
+    spans
+        .iter()
+        .enumerate()
+        .map(|(idx, &(open, close))| {
+            let front = lines[open + 1..close].join("\n");
+            let body_start = close + 1;
+            let body_end = spans.get(idx + 1).map(|&(next_open, _)| next_open).unwrap_or(lines.len());
+            let mut body_lines = lines[body_start..body_end].to_vec();
+            // Trailing horizontal rules / blank lines belong to the gap
+            // between snippets, not to this snippet's code.
+            while matches!(body_lines.last(), Some(l) if l.trim().is_empty() || l.trim() == "---") {
+                body_lines.pop();
+            }
+            (front, body_lines.join("\n"))
+        })
+        .collect()
+}
+
+/// If `body` is a single fenced code block (```lang ... ```), return its
+/// inner content plus the fence's info-string as a language hint. Anything
+/// else (no fence, or extra text alongside the fence) is returned unchanged
+/// with no language hint, so non-fenced snippets behave exactly as before.
+fn strip_code_fence(body: &str) -> (String, Option<String>) {
+    let trimmed = body.trim();
+    let mut lines = trimmed.lines();
+    let Some(first) = lines.next() else {
+        return (String::new(), None);
+    };
+    let Some(lang) = first.trim().strip_prefix("```") else {
+        return (trimmed.to_string(), None);
+    };
+
+    let rest: Vec<&str> = lines.collect();
+    if rest.last().map(|l| l.trim()) != Some("```") {
+        return (trimmed.to_string(), None);
+    }
+
+    let inner = rest[..rest.len() - 1].join("\n");
+    let lang = lang.trim();
+    (
+        inner.trim().to_string(),
+        if lang.is_empty() { None } else { Some(lang.to_string()) },
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -645,19 +780,80 @@ mod tests {
     fn markdown_front_matter_is_parsed() {
         let conn = test_conn();
         let md = "---\ntitle: Restart Pi-hole\nlanguage: bash\ntags: linux, pihole\n---\npihole restartdns\n";
-        let snip = import_markdown(&conn, md).unwrap();
-        assert_eq!(snip.title, "Restart Pi-hole");
-        assert_eq!(snip.language, "bash");
-        assert_eq!(snip.code, "pihole restartdns");
-        assert_eq!(snip.tags, vec!["linux".to_string(), "pihole".to_string()]);
+        let r = import_markdown(&conn, md, "rename").unwrap();
+        assert_eq!(r.imported, 1);
+        let snips = list_snippets(&conn).unwrap();
+        assert_eq!(snips.len(), 1);
+        assert_eq!(snips[0].title, "Restart Pi-hole");
+        assert_eq!(snips[0].language, "bash");
+        assert_eq!(snips[0].code, "pihole restartdns");
+        assert_eq!(snips[0].tags, vec!["linux".to_string(), "pihole".to_string()]);
     }
 
     #[test]
     fn markdown_without_front_matter_falls_back() {
         let conn = test_conn();
-        let snip = import_markdown(&conn, "just some code").unwrap();
-        assert_eq!(snip.title, "Imported snippet");
-        assert_eq!(snip.code, "just some code");
+        let r = import_markdown(&conn, "just some code", "rename").unwrap();
+        assert_eq!(r.imported, 1);
+        let snips = list_snippets(&conn).unwrap();
+        assert_eq!(snips[0].title, "Imported snippet");
+        assert_eq!(snips[0].code, "just some code");
+    }
+
+    #[test]
+    fn markdown_fenced_code_block_is_unwrapped() {
+        let conn = test_conn();
+        let md = "---\ntitle: List Pods\n---\n```bash\nkubectl get pods\n```\n";
+        let r = import_markdown(&conn, md, "rename").unwrap();
+        assert_eq!(r.imported, 1);
+        let snips = list_snippets(&conn).unwrap();
+        assert_eq!(snips[0].code, "kubectl get pods");
+        // No explicit `language:` field, so it falls back to the fence's info string.
+        assert_eq!(snips[0].language, "bash");
+    }
+
+    #[test]
+    fn markdown_multiple_snippets_are_split_into_separate_entries() {
+        let conn = test_conn();
+        let md = "\
+# Sample snippets
+
+---
+
+---
+title: First Snippet
+language: bash
+tags: linux, cleanup
+---
+```bash
+echo one
+```
+
+---
+
+---
+title: Second Snippet
+language: python
+tags: scripting
+---
+```python
+print(\"two\")
+```
+";
+        let r = import_markdown(&conn, md, "rename").unwrap();
+        assert_eq!(r.imported, 2);
+        let snips = list_snippets(&conn).unwrap();
+        assert_eq!(snips.len(), 2);
+
+        let first = snips.iter().find(|s| s.title == "First Snippet").unwrap();
+        assert_eq!(first.language, "bash");
+        assert_eq!(first.code, "echo one");
+        assert_eq!(first.tags, vec!["linux".to_string(), "cleanup".to_string()]);
+
+        let second = snips.iter().find(|s| s.title == "Second Snippet").unwrap();
+        assert_eq!(second.language, "python");
+        assert_eq!(second.code, "print(\"two\")");
+        assert_eq!(second.tags, vec!["scripting".to_string()]);
     }
 
     #[test]

@@ -292,8 +292,11 @@ fn cmd_import(conn: &rusqlite::Connection, file: PathBuf, strategy: &str) -> Res
         .with_context(|| format!("could not read {}", file.display()))?;
 
     if ext == "md" || ext == "markdown" {
-        let s = import_markdown(conn, &content)?;
-        println!("Imported Markdown as snippet #{}: {}", s.id, s.title);
+        let r = import_markdown(conn, &content, strategy)?;
+        println!(
+            "Imported {}, overwrote {}, renamed {}, skipped {}",
+            r.imported, r.overwritten, r.renamed, r.skipped
+        );
     } else {
         let r = import_vault_json(conn, &content, strategy)?;
         println!(

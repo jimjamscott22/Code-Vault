@@ -78,9 +78,15 @@ export default function Settings() {
       });
       if (typeof path !== "string") return;
       setBusy(true);
-      await api.importMarkdown(path);
+      const r = await api.importMarkdown(path, strategy);
       await loadSnippets();
-      toast.success("Markdown imported");
+      const total = r.imported + r.overwritten + r.renamed;
+      toast.success(
+        `Imported ${total} snippet${total === 1 ? "" : "s"}` +
+          (r.overwritten || r.renamed || r.skipped
+            ? ` (overwrote ${r.overwritten}, renamed ${r.renamed}, skipped ${r.skipped})`
+            : ""),
+      );
     } catch (err) {
       toast.error(`Import failed: ${err}`);
     } finally {
@@ -97,14 +103,18 @@ export default function Settings() {
       });
       if (typeof path !== "string") return;
       setBusy(true);
-      const r = await api.importMarkdownDir(path);
+      const r = await api.importMarkdownDir(path, strategy);
       await loadSnippets();
-      if (r.imported === 0 && r.failed === 0) {
+      const total = r.imported + r.overwritten + r.renamed;
+      if (total === 0 && r.skipped === 0 && r.failed_files === 0) {
         toast.error("No .md files found in that folder");
       } else {
         toast.success(
-          `Imported ${r.imported} Markdown file${r.imported === 1 ? "" : "s"}` +
-            (r.failed ? `, ${r.failed} failed` : ""),
+          `Imported ${total} snippet${total === 1 ? "" : "s"}` +
+            (r.overwritten || r.renamed || r.skipped
+              ? ` (overwrote ${r.overwritten}, renamed ${r.renamed}, skipped ${r.skipped})`
+              : "") +
+            (r.failed_files ? `, ${r.failed_files} file${r.failed_files === 1 ? "" : "s"} failed` : ""),
         );
       }
     } catch (err) {
@@ -150,7 +160,7 @@ export default function Settings() {
           </Section>
 
           {/* Import / export */}
-          <Section title="Import / export" hint="Full-vault JSON, a single Markdown file, or a whole folder of Markdown files (front-matter sets title/language/tags).">
+          <Section title="Import / export" hint="Full-vault JSON, or Markdown file(s) — each ---title/language/tags--- front-matter block becomes its own snippet, so one file can hold many.">
             <div className="space-y-3">
               <div className="flex items-center gap-2 flex-wrap">
                 <Btn onClick={handleExport} disabled={busy}>Export vault (JSON)</Btn>

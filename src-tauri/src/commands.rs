@@ -99,18 +99,29 @@ pub fn import_vault(
     db::import_vault_json(&conn, &json, &strategy).map_err(e)
 }
 
+/// Import a Markdown file, which may contain one or more front-matter
+/// delimited snippets (see `codevault_core::import_markdown`).
 #[tauri::command]
-pub fn import_markdown(state: State<'_, DbState>, path: String) -> CmdResult<Snippet> {
+pub fn import_markdown(
+    state: State<'_, DbState>,
+    path: String,
+    strategy: String,
+) -> CmdResult<ImportResult> {
     let content = std::fs::read_to_string(&path).map_err(e)?;
     let conn = state.0.lock().map_err(|_| "db lock poisoned")?;
-    db::import_markdown(&conn, &content).map_err(e)
+    db::import_markdown(&conn, &content, &strategy).map_err(e)
 }
 
-/// Import every `.md` / `.markdown` file in a directory (non-recursive).
-/// Files that can't be read or parsed are counted as failures rather than
-/// aborting the whole batch.
+/// Import every `.md` / `.markdown` file in a directory (non-recursive),
+/// each of which may itself contain multiple snippets. Files that can't be
+/// read or parsed are counted in `failed_files` rather than aborting the
+/// whole batch.
 #[tauri::command]
-pub fn import_markdown_dir(state: State<'_, DbState>, path: String) -> CmdResult<MarkdownDirResult> {
+pub fn import_markdown_dir(
+    state: State<'_, DbState>,
+    path: String,
+    strategy: String,
+) -> CmdResult<MarkdownDirResult> {
     let entries = std::fs::read_dir(&path).map_err(e)?;
     let conn = state.0.lock().map_err(|_| "db lock poisoned")?;
     let mut result = MarkdownDirResult::default();
@@ -125,11 +136,11 @@ pub fn import_markdown_dir(state: State<'_, DbState>, path: String) -> CmdResult
             continue;
         }
         match std::fs::read_to_string(&p) {
-            Ok(content) => match db::import_markdown(&conn, &content) {
-                Ok(_) => result.imported += 1,
-                Err(_) => result.failed += 1,
+            Ok(content) => match db::import_markdown(&conn, &content, &strategy) {
+                Ok(r) => result.add(&r),
+                Err(_) => result.failed_files += 1,
             },
-            Err(_) => result.failed += 1,
+            Err(_) => result.failed_files += 1,
         }
     }
     Ok(result)

@@ -46,5 +46,8 @@ export interface ImportResult {
 
 export interface MarkdownDirResult {
   imported: number;
-  failed: number;
+  overwritten: number;
+  skipped: number;
+  renamed: number;
+  failed_files: number;
 }

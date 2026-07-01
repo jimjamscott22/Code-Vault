@@ -218,7 +218,7 @@ Open **Settings** (gear icon, top-left, or `Ctrl+,`):
 
 - **Export vault (JSON)** — writes the whole vault to a JSON file.
 - **Import vault (JSON)** — merges a JSON export; on a title conflict choose *rename*, *skip*, or *overwrite*.
-- **Import Markdown** — creates a snippet from a `.md` file; a `---` front-matter block supplies `title`, `language`, and comma-separated `tags`, and the body becomes the snippet code.
+- **Import Markdown** — creates one or more snippets from a `.md` file. Each `---` front-matter block (`title`, `language`, comma-separated `tags`) starts a new snippet; its body — up to the next front-matter block or EOF — becomes the snippet code (a single fenced ```lang code block is unwrapped automatically). Files with no front-matter import as one snippet with defaulted title/language. Title conflicts follow the same *rename*/*skip*/*overwrite* choice as JSON import.
 
 A dated backup of `vault.db` is taken on each launch (last 7 kept) in the data directory.
 
