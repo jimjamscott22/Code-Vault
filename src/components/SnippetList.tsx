@@ -1,5 +1,6 @@
 import type { Snippet } from "../lib/types";
 import { useVaultStore } from "../lib/store";
+import { getLanguageColors } from "../lib/languageColors";
 import LanguageBadge from "./LanguageBadge";
 
 function StarIcon({ filled }: { filled: boolean }) {
@@ -23,6 +24,7 @@ interface RowProps {
 }
 
 function SnippetRow({ snippet, selected, onClick }: RowProps) {
+  const titleColor = getLanguageColors(snippet.language).text;
   return (
     <button
       onClick={onClick}
@@ -33,7 +35,11 @@ function SnippetRow({ snippet, selected, onClick }: RowProps) {
       }`}
     >
       <div className="flex items-start justify-between gap-2 mb-1">
-        <span className={`text-sm font-mono leading-snug flex-1 min-w-0 truncate ${selected ? "text-zinc-100" : "text-zinc-200 group-hover:text-zinc-100"}`}>
+        <span
+          className={`text-sm font-mono leading-snug flex-1 min-w-0 truncate transition-[filter] ${titleColor} ${
+            selected ? "brightness-125 font-medium" : "group-hover:brightness-125"
+          }`}
+        >
           {snippet.title}
         </span>
         <StarIcon filled={snippet.favorite} />
