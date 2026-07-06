@@ -18,6 +18,7 @@ pub struct Snippet {
     pub notes: String,
     pub favorite: bool,
     pub tags: Vec<String>,
+    pub folder_id: Option<i64>,
     pub created_at: i64,
     pub updated_at: i64,
 }
@@ -31,6 +32,20 @@ pub struct NewSnippet {
     pub notes: String,
     pub favorite: bool,
     pub tags: Vec<String>,
+    #[serde(default)]
+    pub folder_id: Option<i64>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Folder {
+    pub id: i64,
+    pub name: String,
+    pub created_at: i64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct NewFolder {
+    pub name: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -76,6 +91,7 @@ fn row_to_snippet(row: &rusqlite::Row<'_>) -> rusqlite::Result<Snippet> {
         tags: parse_tags(&tag_names),
         created_at: row.get(8)?,
         updated_at: row.get(9)?,
+        folder_id: row.get(10)?,
     })
 }
 
@@ -84,7 +100,7 @@ const SNIPPET_SELECT: &str = "
         s.id, s.title, s.description, s.language, s.code, s.notes,
         s.favorite,
         COALESCE(GROUP_CONCAT(t.name, ','), '') AS tag_names,
-        s.created_at, s.updated_at
+        s.created_at, s.updated_at, s.folder_id
     FROM snippets s
     LEFT JOIN snippet_tags st ON s.id = st.snippet_id
     LEFT JOIN tags t ON t.id = st.tag_id
@@ -124,29 +140,41 @@ fn migrate(conn: &Connection) -> Result<()> {
         )
         .unwrap_or(0);
 
-    let migrations: &[(i64, &str)] = &[(
-        1,
-        "CREATE TABLE IF NOT EXISTS snippets (
-             id          INTEGER PRIMARY KEY AUTOINCREMENT,
-             title       TEXT    NOT NULL,
-             description TEXT    NOT NULL DEFAULT '',
-             language    TEXT    NOT NULL DEFAULT '',
-             code        TEXT    NOT NULL DEFAULT '',
-             notes       TEXT    NOT NULL DEFAULT '',
-             favorite    INTEGER NOT NULL DEFAULT 0,
-             created_at  INTEGER NOT NULL,
-             updated_at  INTEGER NOT NULL
-         );
-         CREATE TABLE IF NOT EXISTS tags (
-             id   INTEGER PRIMARY KEY AUTOINCREMENT,
-             name TEXT UNIQUE NOT NULL
-         );
-         CREATE TABLE IF NOT EXISTS snippet_tags (
-             snippet_id INTEGER NOT NULL REFERENCES snippets(id) ON DELETE CASCADE,
-             tag_id     INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
-             PRIMARY KEY (snippet_id, tag_id)
-         );",
-    )];
+    let migrations: &[(i64, &str)] = &[
+        (
+            1,
+            "CREATE TABLE IF NOT EXISTS snippets (
+                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                 title       TEXT    NOT NULL,
+                 description TEXT    NOT NULL DEFAULT '',
+                 language    TEXT    NOT NULL DEFAULT '',
+                 code        TEXT    NOT NULL DEFAULT '',
+                 notes       TEXT    NOT NULL DEFAULT '',
+                 favorite    INTEGER NOT NULL DEFAULT 0,
+                 created_at  INTEGER NOT NULL,
+                 updated_at  INTEGER NOT NULL
+             );
+             CREATE TABLE IF NOT EXISTS tags (
+                 id   INTEGER PRIMARY KEY AUTOINCREMENT,
+                 name TEXT UNIQUE NOT NULL
+             );
+             CREATE TABLE IF NOT EXISTS snippet_tags (
+                 snippet_id INTEGER NOT NULL REFERENCES snippets(id) ON DELETE CASCADE,
+                 tag_id     INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+                 PRIMARY KEY (snippet_id, tag_id)
+             );",
+        ),
+        (
+            2,
+            "CREATE TABLE IF NOT EXISTS folders (
+                 id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                 name       TEXT UNIQUE NOT NULL,
+                 created_at INTEGER NOT NULL
+             );
+             ALTER TABLE snippets ADD COLUMN folder_id INTEGER;
+             CREATE INDEX IF NOT EXISTS idx_snippets_folder_id ON snippets(folder_id);",
+        ),
+    ];
 
     for (v, sql) in migrations {
         if *v > version {
@@ -235,8 +263,8 @@ pub fn get_snippet(conn: &Connection, id: i64) -> Result<Snippet> {
 pub fn create_snippet(conn: &Connection, input: NewSnippet) -> Result<Snippet> {
     let ts = now();
     conn.execute(
-        "INSERT INTO snippets (title, description, language, code, notes, favorite, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        "INSERT INTO snippets (title, description, language, code, notes, favorite, folder_id, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
         params![
             input.title,
             input.description,
@@ -244,6 +272,7 @@ pub fn create_snippet(conn: &Connection, input: NewSnippet) -> Result<Snippet> {
             input.code,
             input.notes,
             input.favorite as i64,
+            input.folder_id,
             ts,
             ts
         ],
@@ -325,6 +354,65 @@ pub fn set_snippet_tags(conn: &Connection, snippet_id: i64, tag_names: &[String]
         )?;
     }
     Ok(())
+}
+
+fn row_to_folder(row: &rusqlite::Row<'_>) -> rusqlite::Result<Folder> {
+    Ok(Folder {
+        id: row.get(0)?,
+        name: row.get(1)?,
+        created_at: row.get(2)?,
+    })
+}
+
+pub fn list_folders(conn: &Connection) -> Result<Vec<Folder>> {
+    let mut stmt = conn.prepare("SELECT id, name, created_at FROM folders ORDER BY name")?;
+    let rows = stmt.query_map([], row_to_folder)?;
+    rows.map(|r| r.map_err(anyhow::Error::from)).collect()
+}
+
+fn get_folder(conn: &Connection, id: i64) -> Result<Folder> {
+    conn.query_row(
+        "SELECT id, name, created_at FROM folders WHERE id = ?1",
+        params![id],
+        row_to_folder,
+    )
+    .with_context(|| format!("folder {id} not found"))
+}
+
+pub fn create_folder(conn: &Connection, input: NewFolder) -> Result<Folder> {
+    let name = input.name.trim();
+    conn.execute(
+        "INSERT INTO folders (name, created_at) VALUES (?1, ?2)",
+        params![name, now()],
+    )?;
+    get_folder(conn, conn.last_insert_rowid())
+}
+
+pub fn rename_folder(conn: &Connection, id: i64, name: &str) -> Result<Folder> {
+    conn.execute(
+        "UPDATE folders SET name = ?1 WHERE id = ?2",
+        params![name.trim(), id],
+    )?;
+    get_folder(conn, id)
+}
+
+/// Delete a folder. Snippets that belonged to it become unfiled (`folder_id`
+/// set to NULL) rather than being deleted themselves.
+pub fn delete_folder(conn: &Connection, id: i64) -> Result<()> {
+    conn.execute(
+        "UPDATE snippets SET folder_id = NULL WHERE folder_id = ?1",
+        params![id],
+    )?;
+    conn.execute("DELETE FROM folders WHERE id = ?1", params![id])?;
+    Ok(())
+}
+
+pub fn set_snippet_folder(conn: &Connection, snippet_id: i64, folder_id: Option<i64>) -> Result<Snippet> {
+    conn.execute(
+        "UPDATE snippets SET folder_id = ?1, updated_at = ?2 WHERE id = ?3",
+        params![folder_id, now(), snippet_id],
+    )?;
+    get_snippet(conn, snippet_id)
 }
 
 pub fn search_snippets(conn: &Connection, query: &str) -> Result<Vec<Snippet>> {
@@ -720,6 +808,7 @@ mod tests {
             notes: String::new(),
             favorite: false,
             tags: vec!["shell".to_string()],
+            folder_id: None,
         }
     }
 
@@ -873,5 +962,24 @@ print(\"two\")
     fn ymd_conversion_is_correct() {
         assert_eq!(ymd_from_unix(1_609_459_200), (2021, 1, 1));
         assert_eq!(ymd_from_unix(0), (1970, 1, 1));
+    }
+
+    #[test]
+    fn folder_lifecycle_assigns_and_unassigns_snippets() {
+        let conn = test_conn();
+        let snip = create_snippet(&conn, sample("One")).unwrap();
+        let folder = create_folder(&conn, NewFolder { name: "Bash Scripts".to_string() }).unwrap();
+        assert_eq!(folder.name, "Bash Scripts");
+
+        let moved = set_snippet_folder(&conn, snip.id, Some(folder.id)).unwrap();
+        assert_eq!(moved.folder_id, Some(folder.id));
+
+        let renamed = rename_folder(&conn, folder.id, "Shell Scripts").unwrap();
+        assert_eq!(renamed.name, "Shell Scripts");
+
+        delete_folder(&conn, folder.id).unwrap();
+        assert!(list_folders(&conn).unwrap().is_empty());
+        let unfiled = get_snippet(&conn, snip.id).unwrap();
+        assert_eq!(unfiled.folder_id, None);
     }
 }

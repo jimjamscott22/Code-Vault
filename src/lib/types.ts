@@ -3,6 +3,16 @@ export interface Tag {
   name: string;
 }
 
+export interface Folder {
+  id: number;
+  name: string;
+  created_at: number;
+}
+
+export interface NewFolder {
+  name: string;
+}
+
 export interface Snippet {
   id: number;
   title: string;
@@ -12,6 +22,7 @@ export interface Snippet {
   notes: string;
   favorite: boolean;
   tags: string[];
+  folder_id: number | null;
   created_at: number;
   updated_at: number;
 }
@@ -24,6 +35,7 @@ export interface NewSnippet {
   notes: string;
   favorite: boolean;
   tags: string[];
+  folder_id?: number | null;
 }
 
 export interface SnippetPatch {

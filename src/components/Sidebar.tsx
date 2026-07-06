@@ -1,5 +1,6 @@
-import { useEffect, useRef } from "react";
-import { useVaultStore } from "../lib/store";
+import { useEffect, useRef, useState } from "react";
+import { UNFILED, useVaultStore } from "../lib/store";
+import type { Folder } from "../lib/types";
 import SnippetList from "./SnippetList";
 
 function SearchIcon() {
@@ -18,6 +19,30 @@ function PlusIcon() {
   );
 }
 
+function FolderIcon() {
+  return (
+    <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-19.5 0v6a2.25 2.25 0 002.25 2.25h15a2.25 2.25 0 002.25-2.25v-6m-19.5 0V6A2.25 2.25 0 014.5 3.75h4.372c.516 0 1.01.205 1.375.57l1.756 1.756c.365.365.859.57 1.375.57H19.5A2.25 2.25 0 0121.75 9v3.75" />
+    </svg>
+  );
+}
+
+function PencilIcon() {
+  return (
+    <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487z" />
+    </svg>
+  );
+}
+
+function XIcon() {
+  return (
+    <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+    </svg>
+  );
+}
+
 function GearIcon() {
   return (
     <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -27,17 +52,129 @@ function GearIcon() {
   );
 }
 
+interface FolderRowProps {
+  folder: Folder;
+  active: boolean;
+  count: number;
+  onSelect: () => void;
+  onRename: (name: string) => void;
+  onDelete: () => void;
+}
+
+function FolderRow({ folder, active, count, onSelect, onRename, onDelete }: FolderRowProps) {
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(folder.name);
+  // Guards against double-submit: unmounting the input on Enter fires a
+  // synthetic blur from the same stale closure, which would otherwise
+  // re-run the commit logic a second time.
+  const settledRef = useRef(false);
+
+  const startEditing = () => {
+    settledRef.current = false;
+    setName(folder.name);
+    setEditing(true);
+  };
+
+  const commitRename = () => {
+    if (settledRef.current) return;
+    settledRef.current = true;
+    const trimmed = name.trim();
+    if (trimmed && trimmed !== folder.name) onRename(trimmed);
+    setEditing(false);
+  };
+
+  const cancelRename = () => {
+    settledRef.current = true;
+    setName(folder.name);
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        onBlur={commitRename}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") commitRename();
+          if (e.key === "Escape") cancelRename();
+        }}
+        className="w-full bg-zinc-800 border border-emerald-700 text-zinc-200 font-mono text-xs rounded px-2 py-1.5 outline-none"
+      />
+    );
+  }
+
+  return (
+    <div
+      className={`group w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs font-mono cursor-pointer transition-colors ${
+        active ? "bg-emerald-900 text-emerald-200" : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+      }`}
+      onClick={onSelect}
+    >
+      <FolderIcon />
+      <span className="flex-1 min-w-0 truncate">{folder.name}</span>
+      <span className="text-zinc-600 flex-shrink-0">{count}</span>
+      <button
+        onClick={(e) => { e.stopPropagation(); startEditing(); }}
+        className="flex-shrink-0 hidden group-hover:block text-zinc-500 hover:text-zinc-200"
+        title="Rename folder"
+      >
+        <PencilIcon />
+      </button>
+      <button
+        onClick={(e) => { e.stopPropagation(); onDelete(); }}
+        className="flex-shrink-0 hidden group-hover:block text-zinc-500 hover:text-red-400"
+        title="Delete folder"
+      >
+        <XIcon />
+      </button>
+    </div>
+  );
+}
+
 export default function Sidebar() {
   const {
     searchQuery, setSearchQuery,
     activeTag, setActiveTag,
     activeLanguage, setActiveLanguage,
+    activeFolder, setActiveFolder,
+    folders, createFolder, renameFolder, deleteFolder,
     allTags, snippets, createSnippet,
     setSettingsOpen,
   } = useVaultStore();
 
   const tags = allTags();
   const languages = Array.from(new Set(snippets.map((s) => s.language))).sort();
+
+  const [addingFolder, setAddingFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
+  // See FolderRow's settledRef: unmounting this input on Enter fires a
+  // stale-closure blur that would otherwise double-submit.
+  const addFolderSettledRef = useRef(false);
+
+  const openAddFolder = () => {
+    addFolderSettledRef.current = false;
+    setNewFolderName("");
+    setAddingFolder(true);
+  };
+
+  const submitNewFolder = () => {
+    if (addFolderSettledRef.current) return;
+    addFolderSettledRef.current = true;
+    const trimmed = newFolderName.trim();
+    if (trimmed) createFolder(trimmed);
+    setNewFolderName("");
+    setAddingFolder(false);
+  };
+
+  const cancelNewFolder = () => {
+    addFolderSettledRef.current = true;
+    setNewFolderName("");
+    setAddingFolder(false);
+  };
+
+  const unfiledCount = snippets.filter((s) => s.folder_id === null).length;
 
   // Ctrl+F (Cmd+F on macOS) focuses the search input
   const searchRef = useRef<HTMLInputElement>(null);
@@ -96,6 +233,69 @@ export default function Sidebar() {
             <button onClick={() => setSearchQuery("")} className="text-zinc-500 hover:text-zinc-300 transition-colors text-xs font-mono">
               ✕
             </button>
+          )}
+        </div>
+      </div>
+
+      {/* Folders */}
+      <div className="px-3 py-3 border-b border-zinc-800 flex-shrink-0 max-h-48 overflow-y-auto">
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-zinc-600 font-mono text-xs uppercase tracking-widest">Folders</p>
+          <button
+            onClick={openAddFolder}
+            className="text-zinc-500 hover:text-emerald-400 transition-colors"
+            title="New folder"
+          >
+            <PlusIcon />
+          </button>
+        </div>
+
+        <div className="flex flex-col gap-0.5">
+          <button
+            onClick={() => setActiveFolder(null)}
+            className={`w-full text-left px-2 py-1.5 rounded text-xs font-mono transition-colors ${
+              activeFolder === null ? "bg-emerald-900 text-emerald-200" : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+            }`}
+          >
+            All snippets
+          </button>
+
+          {folders.map((f) => (
+            <FolderRow
+              key={f.id}
+              folder={f}
+              active={activeFolder === f.id}
+              count={snippets.filter((s) => s.folder_id === f.id).length}
+              onSelect={() => setActiveFolder(activeFolder === f.id ? null : f.id)}
+              onRename={(name) => renameFolder(f.id, name)}
+              onDelete={() => deleteFolder(f.id)}
+            />
+          ))}
+
+          {unfiledCount > 0 && (
+            <button
+              onClick={() => setActiveFolder(activeFolder === UNFILED ? null : UNFILED)}
+              className={`w-full text-left px-2 py-1.5 rounded text-xs font-mono transition-colors ${
+                activeFolder === UNFILED ? "bg-emerald-900 text-emerald-200" : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+              }`}
+            >
+              Unfiled ({unfiledCount})
+            </button>
+          )}
+
+          {addingFolder && (
+            <input
+              autoFocus
+              value={newFolderName}
+              onChange={(e) => setNewFolderName(e.target.value)}
+              onBlur={submitNewFolder}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") submitNewFolder();
+                if (e.key === "Escape") cancelNewFolder();
+              }}
+              placeholder="folder name"
+              className="w-full bg-zinc-800 border border-emerald-700 text-zinc-200 font-mono text-xs rounded px-2 py-1.5 outline-none placeholder-zinc-600 mt-0.5"
+            />
           )}
         </div>
       </div>

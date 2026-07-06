@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { ImportResult, ImportStrategy, MarkdownDirResult, NewSnippet, Snippet, SnippetPatch } from "./types";
+import type { Folder, ImportResult, ImportStrategy, MarkdownDirResult, NewFolder, NewSnippet, Snippet, SnippetPatch } from "./types";
 
 export const api = {
   listSnippets: () =>
@@ -28,6 +28,21 @@ export const api = {
 
   searchSnippets: (query: string) =>
     invoke<Snippet[]>("search_snippets", { query }),
+
+  listFolders: () =>
+    invoke<Folder[]>("list_folders"),
+
+  createFolder: (input: NewFolder) =>
+    invoke<Folder>("create_folder", { input }),
+
+  renameFolder: (id: number, name: string) =>
+    invoke<Folder>("rename_folder", { id, name }),
+
+  deleteFolder: (id: number) =>
+    invoke<void>("delete_folder", { id }),
+
+  moveSnippetToFolder: (id: number, folderId: number | null) =>
+    invoke<Snippet>("move_snippet_to_folder", { id, folderId }),
 
   getDataDir: () =>
     invoke<string>("get_data_dir"),
