@@ -1,6 +1,6 @@
 use std::sync::Mutex;
 
-use crate::db::{self, ImportResult, MarkdownDirResult, NewSnippet, Snippet, SnippetPatch};
+use crate::db::{self, Folder, ImportResult, MarkdownDirResult, NewFolder, NewSnippet, Snippet, SnippetPatch};
 use tauri::{AppHandle, Manager, State};
 
 pub struct DbState(pub Mutex<rusqlite::Connection>);
@@ -71,6 +71,40 @@ pub fn set_snippet_tags(
 pub fn search_snippets(state: State<'_, DbState>, query: String) -> CmdResult<Vec<Snippet>> {
     let conn = state.0.lock().map_err(|_| "db lock poisoned")?;
     db::search_snippets(&conn, &query).map_err(e)
+}
+
+#[tauri::command]
+pub fn list_folders(state: State<'_, DbState>) -> CmdResult<Vec<Folder>> {
+    let conn = state.0.lock().map_err(|_| "db lock poisoned")?;
+    db::list_folders(&conn).map_err(e)
+}
+
+#[tauri::command]
+pub fn create_folder(state: State<'_, DbState>, input: NewFolder) -> CmdResult<Folder> {
+    let conn = state.0.lock().map_err(|_| "db lock poisoned")?;
+    db::create_folder(&conn, input).map_err(e)
+}
+
+#[tauri::command]
+pub fn rename_folder(state: State<'_, DbState>, id: i64, name: String) -> CmdResult<Folder> {
+    let conn = state.0.lock().map_err(|_| "db lock poisoned")?;
+    db::rename_folder(&conn, id, &name).map_err(e)
+}
+
+#[tauri::command]
+pub fn delete_folder(state: State<'_, DbState>, id: i64) -> CmdResult<()> {
+    let conn = state.0.lock().map_err(|_| "db lock poisoned")?;
+    db::delete_folder(&conn, id).map_err(e)
+}
+
+#[tauri::command]
+pub fn move_snippet_to_folder(
+    state: State<'_, DbState>,
+    id: i64,
+    folder_id: Option<i64>,
+) -> CmdResult<Snippet> {
+    let conn = state.0.lock().map_err(|_| "db lock poisoned")?;
+    db::set_snippet_folder(&conn, id, folder_id).map_err(e)
 }
 
 #[tauri::command]

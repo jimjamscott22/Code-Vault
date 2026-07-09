@@ -245,6 +245,7 @@ fn cmd_add(
             notes: String::new(),
             favorite: false,
             tags: tag_list,
+            folder_id: None,
         },
     )?;
 

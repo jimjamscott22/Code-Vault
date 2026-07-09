@@ -72,7 +72,8 @@ function snippetToForm(s: Snippet): FormState {
 export default function SnippetDetail() {
   const snippet = useVaultStore((s) => s.selectedSnippet());
   const notesVisible = useVaultStore((s) => s.notesVisible);
-  const { updateSnippet, updateTags, toggleFavorite, confirmDelete } = useVaultStore();
+  const folders = useVaultStore((s) => s.folders);
+  const { updateSnippet, updateTags, toggleFavorite, confirmDelete, moveSnippetToFolder } = useVaultStore();
 
   const [form, setForm] = useState<FormState | null>(null);
   const [isDirty, setIsDirty] = useState(false);
@@ -218,6 +219,18 @@ export default function SnippetDetail() {
           </select>
 
           <LanguageBadge language={form.language} />
+
+          <select
+            className="bg-zinc-800 border border-zinc-700 text-zinc-300 font-mono text-xs rounded px-2 py-1 outline-none focus:border-emerald-700 transition-colors cursor-pointer"
+            value={snippet.folder_id ?? ""}
+            onChange={(e) => moveSnippetToFolder(snippet.id, e.target.value ? Number(e.target.value) : null)}
+            title="Folder"
+          >
+            <option value="">No folder</option>
+            {folders.map((f) => (
+              <option key={f.id} value={f.id}>{f.name}</option>
+            ))}
+          </select>
 
           <input
             className="flex-1 min-w-0 bg-transparent text-zinc-500 font-mono text-xs outline-none border-b border-transparent focus:border-zinc-700 transition-colors placeholder-zinc-700"
