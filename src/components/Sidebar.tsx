@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from "react";
 import { UNFILED, useVaultStore } from "../lib/store";
 import type { Folder } from "../lib/types";
 import SnippetList from "./SnippetList";
@@ -51,6 +52,57 @@ function GearIcon() {
     </svg>
   );
 }
+
+function ResizeIcon() {
+  return (
+    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8 9l4-4 4 4M16 15l-4 4-4-4" />
+    </svg>
+  );
+}
+
+interface ResizeHandleProps {
+  label: string;
+  active: boolean;
+  onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
+  onKeyDown: (event: ReactKeyboardEvent<HTMLDivElement>) => void;
+}
+
+function ResizeHandle({ label, active, onPointerDown, onKeyDown }: ResizeHandleProps) {
+  return (
+    <div
+      role="separator"
+      aria-label={label}
+      aria-orientation="horizontal"
+      tabIndex={0}
+      title={label}
+      onPointerDown={onPointerDown}
+      onKeyDown={onKeyDown}
+      className={`group relative z-10 h-2 flex-shrink-0 cursor-row-resize touch-none outline-none transition-colors before:absolute before:inset-x-0 before:top-1/2 before:h-px before:-translate-y-1/2 before:bg-zinc-800 hover:before:bg-emerald-700 focus-visible:before:bg-emerald-700 ${
+        active ? "before:bg-emerald-700" : ""
+      }`}
+    >
+      <span
+        className={`pointer-events-none absolute left-1/2 top-1/2 flex h-5 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded border border-zinc-700 bg-zinc-900 text-zinc-500 shadow-sm transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 ${
+          active ? "opacity-100 text-emerald-400" : "opacity-0"
+        }`}
+      >
+        <ResizeIcon />
+      </span>
+    </div>
+  );
+}
+
+type ResizableSection = "folders" | "tags";
+
+interface SectionHeights {
+  folders: number | null;
+  tags: number | null;
+}
+
+const MIN_FILTER_SECTION_HEIGHT = 72;
+const MIN_SNIPPET_SECTION_HEIGHT = 96;
+const KEYBOARD_RESIZE_STEP = 12;
 
 interface FolderRowProps {
   folder: Folder;
@@ -149,6 +201,12 @@ export default function Sidebar() {
 
   const [addingFolder, setAddingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
+  const [sectionHeights, setSectionHeights] = useState<SectionHeights>({ folders: null, tags: null });
+  const [activeResize, setActiveResize] = useState<ResizableSection | null>(null);
+  const foldersRef = useRef<HTMLDivElement>(null);
+  const tagsRef = useRef<HTMLDivElement>(null);
+  const snippetsRef = useRef<HTMLDivElement>(null);
+  const activeResizeCleanupRef = useRef<(() => void) | null>(null);
   // See FolderRow's settledRef: unmounting this input on Enter fires a
   // stale-closure blur that would otherwise double-submit.
   const addFolderSettledRef = useRef(false);
@@ -189,6 +247,90 @@ export default function Sidebar() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
+
+  useEffect(() => () => activeResizeCleanupRef.current?.(), []);
+
+  const getSectionElement = (section: ResizableSection) =>
+    section === "folders" ? foldersRef.current : tagsRef.current;
+
+  const updateSectionHeight = (section: ResizableSection, height: number) => {
+    setSectionHeights((current) => ({ ...current, [section]: height }));
+  };
+
+  const getSectionHeightBounds = (section: ResizableSection) => {
+    const sectionElement = getSectionElement(section);
+    const snippetsElement = snippetsRef.current;
+    if (!sectionElement || !snippetsElement) return null;
+
+    const currentHeight = sectionElement.getBoundingClientRect().height;
+    const snippetHeight = snippetsElement.getBoundingClientRect().height;
+    return {
+      currentHeight,
+      maxHeight: Math.max(
+        MIN_FILTER_SECTION_HEIGHT,
+        currentHeight + snippetHeight - MIN_SNIPPET_SECTION_HEIGHT,
+      ),
+    };
+  };
+
+  const startResize = (section: ResizableSection, event: ReactPointerEvent<HTMLDivElement>) => {
+    const bounds = getSectionHeightBounds(section);
+    if (!bounds) return;
+
+    event.preventDefault();
+    activeResizeCleanupRef.current?.();
+
+    const startY = event.clientY;
+    const previousUserSelect = document.body.style.userSelect;
+    const previousCursor = document.body.style.cursor;
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "row-resize";
+    setActiveResize(section);
+
+    const onPointerMove = (moveEvent: PointerEvent) => {
+      const nextHeight = Math.min(
+        bounds.maxHeight,
+        Math.max(MIN_FILTER_SECTION_HEIGHT, bounds.currentHeight + moveEvent.clientY - startY),
+      );
+      updateSectionHeight(section, nextHeight);
+    };
+
+    let cleanedUp = false;
+    const finishResize = () => {
+      if (cleanedUp) return;
+      cleanedUp = true;
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", finishResize);
+      window.removeEventListener("pointercancel", finishResize);
+      document.body.style.userSelect = previousUserSelect;
+      document.body.style.cursor = previousCursor;
+      activeResizeCleanupRef.current = null;
+      setActiveResize(null);
+    };
+
+    activeResizeCleanupRef.current = finishResize;
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", finishResize);
+    window.addEventListener("pointercancel", finishResize);
+  };
+
+  const resizeWithKeyboard = (section: ResizableSection, event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+
+    const bounds = getSectionHeightBounds(section);
+    if (!bounds) return;
+
+    event.preventDefault();
+    const direction = event.key === "ArrowDown" ? 1 : -1;
+    const step = event.shiftKey ? KEYBOARD_RESIZE_STEP * 3 : KEYBOARD_RESIZE_STEP;
+    updateSectionHeight(
+      section,
+      Math.min(
+        bounds.maxHeight,
+        Math.max(MIN_FILTER_SECTION_HEIGHT, bounds.currentHeight + direction * step),
+      ),
+    );
+  };
 
   return (
     <div className="flex flex-col h-full bg-zinc-900 border-r border-zinc-800">
@@ -238,7 +380,14 @@ export default function Sidebar() {
       </div>
 
       {/* Folders */}
-      <div className="px-3 py-3 border-b border-zinc-800 flex-shrink-0 max-h-48 overflow-y-auto">
+      <div
+        ref={foldersRef}
+        style={{
+          height: sectionHeights.folders ?? undefined,
+          maxHeight: sectionHeights.folders === null ? 192 : undefined,
+        }}
+        className="px-3 py-3 flex-shrink-0 overflow-y-auto"
+      >
         <div className="flex items-center justify-between mb-2">
           <p className="text-zinc-600 font-mono text-xs uppercase tracking-widest">Folders</p>
           <button
@@ -300,6 +449,13 @@ export default function Sidebar() {
         </div>
       </div>
 
+      <ResizeHandle
+        label="Resize folders and snippets"
+        active={activeResize === "folders"}
+        onPointerDown={(event) => startResize("folders", event)}
+        onKeyDown={(event) => resizeWithKeyboard("folders", event)}
+      />
+
       {/* Language filter */}
       {languages.length > 0 && (
         <div className="px-3 py-3 border-b border-zinc-800 flex-shrink-0">
@@ -324,24 +480,40 @@ export default function Sidebar() {
 
       {/* Tag filter */}
       {tags.length > 0 && (
-        <div className="px-3 py-3 border-b border-zinc-800 flex-shrink-0 max-h-40 overflow-y-auto">
-          <p className="text-zinc-600 font-mono text-xs uppercase tracking-widest mb-2">Tags</p>
-          <div className="flex flex-wrap gap-1.5">
-            {tags.map((tag) => (
-              <button
-                key={tag}
-                onClick={() => setActiveTag(activeTag === tag ? null : tag)}
-                className={`text-xs font-mono px-2 py-0.5 rounded transition-colors ${
-                  activeTag === tag
-                    ? "bg-emerald-800 text-emerald-200 border border-emerald-600"
-                    : "bg-zinc-800 text-zinc-400 border border-zinc-700 hover:border-zinc-500 hover:text-zinc-200"
-                }`}
-              >
-                #{tag}
-              </button>
-            ))}
+        <>
+          <div
+            ref={tagsRef}
+            style={{
+              height: sectionHeights.tags ?? undefined,
+              maxHeight: sectionHeights.tags === null ? 160 : undefined,
+            }}
+            className="px-3 py-3 flex-shrink-0 overflow-y-auto"
+          >
+            <p className="text-zinc-600 font-mono text-xs uppercase tracking-widest mb-2">Tags</p>
+            <div className="flex flex-wrap gap-1.5">
+              {tags.map((tag) => (
+                <button
+                  key={tag}
+                  onClick={() => setActiveTag(activeTag === tag ? null : tag)}
+                  className={`text-xs font-mono px-2 py-0.5 rounded transition-colors ${
+                    activeTag === tag
+                      ? "bg-emerald-800 text-emerald-200 border border-emerald-600"
+                      : "bg-zinc-800 text-zinc-400 border border-zinc-700 hover:border-zinc-500 hover:text-zinc-200"
+                  }`}
+                >
+                  #{tag}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+
+          <ResizeHandle
+            label="Resize tags and snippets"
+            active={activeResize === "tags"}
+            onPointerDown={(event) => startResize("tags", event)}
+            onKeyDown={(event) => resizeWithKeyboard("tags", event)}
+          />
+        </>
       )}
 
       {/* Snippet count */}
@@ -352,7 +524,7 @@ export default function Sidebar() {
       </div>
 
       {/* Snippet list — takes remaining height */}
-      <div className="flex-1 min-h-0">
+      <div ref={snippetsRef} className="flex-1 min-h-24">
         <SnippetList />
       </div>
     </div>
