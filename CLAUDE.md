@@ -71,13 +71,16 @@ Key conventions and gotchas when extending:
 - **The DB connection is a single `Mutex<Connection>`** held in `DbState` (`commands.rs`) and managed by Tauri. Every command locks it. There is no connection pool; keep handlers short.
 - **`Snippet` is denormalized on read**: tags live in `tags`/`snippet_tags` join tables but are flattened into a `Vec<String>` via `GROUP_CONCAT` in the shared `SNIPPET_SELECT` constant (`db.rs`). Reuse `SNIPPET_SELECT` for any query returning snippets so the shape stays consistent with `row_to_snippet`.
 - **Schema changes go through `migrate()` in `db.rs`**: append a `(version, sql)` tuple to the `migrations` array; never edit an existing migration. Version is tracked in the `schema_version` table.
-- **Two filtering paths exist**: `store.ts`'s `filteredSnippets()` filters the in-memory list client-side across three axes (`searchQuery`, `activeTag`, `activeLanguage`), while `db.rs`'s `search_snippets` does a SQL `LIKE` search. The UI currently relies on client-side filtering; keep them behaviorally aligned if you touch either.
+- **Two filtering paths exist**: `store.ts`'s `filteredSnippets()` filters the in-memory list client-side across four axes (`searchQuery`, `activeTag`, `activeLanguage`, `activeFolder`), while `db.rs`'s `search_snippets` does a SQL `LIKE` search. The UI currently relies on client-side filtering; keep them behaviorally aligned if you touch either.
+- **Folders are a separate, unrelated grouping axis from tags**: unlike tags (many-to-many), each snippet has at most one `folder_id` (nullable FK on `snippets`). Backend commands are `list_folders`/`create_folder`/`rename_folder`/`delete_folder`/`move_snippet_to_folder`; deleting a folder sets its snippets' `folder_id` back to `NULL` rather than deleting them. In the store, `activeFolder` is a tri-state `FolderFilter` (`number | typeof UNFILED | null`) — `null` means "all folders," the `UNFILED` sentinel means "snippets with no folder," distinct from filtering by a specific folder id.
 - **Existing export/import commands**: `export_vault`, `import_vault`, `import_markdown`, `import_markdown_dir`, and `get_data_dir` are already implemented end-to-end. Check `commands.rs` and `api.ts` before adding new vault I/O commands.
 - **Timestamps are Unix seconds (`i64`)**, set server-side via `now()` in `db.rs`. The frontend treats them as numbers.
 
 ### CodeMirror language support
 
-`src/components/CodeEditor.tsx` maps a snippet's `language` string to a CodeMirror extension via `LANG_MAP`. To support a new language: install its `@codemirror/lang-*` package and add an entry. Languages with no grammar (`bash`, `nginx`, `toml`) map to `() => []` (plain text, no highlighting) — that's intentional, not a bug.
+`src/components/CodeEditor.tsx` maps a snippet's `language` string to a CodeMirror extension via `LANG_MAP`. Languages with no grammar (`bash`, `nginx`, `toml`) map to `() => []` (plain text, no highlighting) — that's intentional, not a bug.
+
+Adding a new language touches three files, not one: install the `@codemirror/lang-*` package and add a `LANG_MAP` entry in `CodeEditor.tsx`; add the language to `src/lib/languages.ts`'s `LANGUAGES` list (the source of truth for language pickers — omitting it here makes the language unselectable even with highlighting support); and add a color entry in `src/lib/languageColors.ts` (badge/title colors — omitting it just silently falls back to a default color, no error).
 
 ## Data location
 
