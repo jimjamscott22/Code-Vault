@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useVaultStore } from "../lib/store";
+import { useSettingsStore } from "../lib/settings";
 
 /**
  * Global keyboard shortcuts. Renders nothing; just registers a window listener.
@@ -9,6 +10,7 @@ import { useVaultStore } from "../lib/store";
  *   Ctrl/Cmd+D  toggle favourite of the selected snippet
  *   Ctrl/Cmd+/  toggle the notes pane
  *   Ctrl/Cmd+,  toggle settings
+ *   Ctrl/Cmd+G  toggle list / card view
  *   Escape      close the command palette / settings
  *
  * Ctrl+F (focus search) lives in Sidebar; Ctrl+S (flush save) lives in
@@ -56,6 +58,12 @@ export default function Shortcuts() {
             e.preventDefault();
             store.toggleFavorite(store.selectedId);
           }
+          break;
+        case "g":
+          // Leave Ctrl+G to CodeMirror's "find next" while editing code.
+          if ((e.target as Element | null)?.closest?.(".cm-editor")) break;
+          e.preventDefault();
+          useSettingsStore.getState().toggleViewMode();
           break;
         case "/":
           e.preventDefault();

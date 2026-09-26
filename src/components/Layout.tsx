@@ -3,10 +3,14 @@ import DeleteModal from "./DeleteModal";
 import Settings from "./Settings";
 import Shortcuts from "./Shortcuts";
 import Sidebar from "./Sidebar";
+import SnippetCards from "./SnippetCards";
 import SnippetDetail from "./SnippetDetail";
 import Toaster from "./Toaster";
+import { useSettingsStore } from "../lib/settings";
 
 export default function Layout() {
+  const viewMode = useSettingsStore((s) => s.viewMode);
+
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-zinc-950 text-zinc-100">
       {/* Left rail: search + filters + snippet list */}
@@ -14,9 +18,9 @@ export default function Layout() {
         <Sidebar />
       </div>
 
-      {/* Detail pane */}
+      {/* Main pane: detail editor or card grid */}
       <div className="flex-1 min-w-0 h-full overflow-hidden">
-        <SnippetDetail />
+        {viewMode === "cards" ? <SnippetCards /> : <SnippetDetail />}
       </div>
 
       {/* Global overlays + handlers */}
