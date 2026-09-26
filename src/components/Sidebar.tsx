@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from "react";
 import { UNFILED, useVaultStore } from "../lib/store";
+import { useSettingsStore } from "../lib/settings";
 import type { Folder } from "../lib/types";
 import SnippetList from "./SnippetList";
 
@@ -185,6 +186,17 @@ function FolderRow({ folder, active, count, onSelect, onRename, onDelete }: Fold
   );
 }
 
+function GridIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+      <rect x="3.75" y="3.75" width="6.5" height="6.5" rx="1" />
+      <rect x="13.75" y="3.75" width="6.5" height="6.5" rx="1" />
+      <rect x="3.75" y="13.75" width="6.5" height="6.5" rx="1" />
+      <rect x="13.75" y="13.75" width="6.5" height="6.5" rx="1" />
+    </svg>
+  );
+}
+
 export default function Sidebar() {
   const {
     searchQuery, setSearchQuery,
@@ -195,6 +207,9 @@ export default function Sidebar() {
     allTags, snippets, createSnippet,
     setSettingsOpen,
   } = useVaultStore();
+
+  const viewMode = useSettingsStore((s) => s.viewMode);
+  const toggleViewMode = useSettingsStore((s) => s.toggleViewMode);
 
   const tags = allTags();
   const languages = Array.from(new Set(snippets.map((s) => s.language))).sort();
@@ -341,6 +356,15 @@ export default function Sidebar() {
           <p className="text-zinc-600 font-mono text-xs mt-0.5">terminal memory trap</p>
         </div>
         <div className="flex items-center gap-1.5">
+          <button
+            onClick={toggleViewMode}
+            className={`p-1.5 transition-colors ${
+              viewMode === "cards" ? "text-emerald-400" : "text-zinc-500 hover:text-zinc-200"
+            }`}
+            title={viewMode === "cards" ? "List view (Ctrl+G)" : "Card view (Ctrl+G)"}
+          >
+            <GridIcon />
+          </button>
           <button
             onClick={() => setSettingsOpen(true)}
             className="p-1.5 text-zinc-500 hover:text-zinc-200 transition-colors"

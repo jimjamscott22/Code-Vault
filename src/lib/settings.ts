@@ -6,15 +6,18 @@ import { create } from "zustand";
 const STORAGE_KEY = "codevault.settings";
 
 export type Theme = "dark" | "light";
+export type ViewMode = "list" | "cards";
 
 interface Settings {
   defaultLanguage: string;
   theme: Theme;
+  viewMode: ViewMode;
 }
 
 const DEFAULTS: Settings = {
   defaultLanguage: "bash",
   theme: "dark",
+  viewMode: "list",
 };
 
 function load(): Settings {
@@ -37,6 +40,8 @@ export function applyTheme(theme: Theme) {
 interface SettingsState extends Settings {
   setDefaultLanguage: (lang: string) => void;
   setTheme: (theme: Theme) => void;
+  setViewMode: (mode: ViewMode) => void;
+  toggleViewMode: () => void;
 }
 
 const initial = load();
@@ -53,13 +58,22 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     set({ theme });
     persist(get());
   },
+  setViewMode: (viewMode) => {
+    set({ viewMode });
+    persist(get());
+  },
+  toggleViewMode: () => get().setViewMode(get().viewMode === "list" ? "cards" : "list"),
 }));
 
 function persist(state: Settings) {
   try {
     localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ defaultLanguage: state.defaultLanguage, theme: state.theme }),
+      JSON.stringify({
+        defaultLanguage: state.defaultLanguage,
+        theme: state.theme,
+        viewMode: state.viewMode,
+      }),
     );
   } catch {
     // ignore quota / availability errors — settings are best-effort
