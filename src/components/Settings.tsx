@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { openPath } from "@tauri-apps/plugin-opener";
 import { api } from "../lib/api";
@@ -8,10 +8,87 @@ import { useVaultStore } from "../lib/store";
 import { toast } from "../lib/toast";
 import type { ImportStrategy } from "../lib/types";
 
+function TagCategoryRow({
+  name,
+  onRename,
+  onDelete,
+}: {
+  name: string;
+  onRename: (name: string) => void;
+  onDelete: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(name);
+  const settledRef = useRef(false);
+
+  const startEditing = () => {
+    settledRef.current = false;
+    setValue(name);
+    setEditing(true);
+  };
+
+  const commitRename = () => {
+    if (settledRef.current) return;
+    settledRef.current = true;
+    const trimmed = value.trim();
+    if (trimmed && trimmed !== name) onRename(trimmed);
+    setEditing(false);
+  };
+
+  const cancelRename = () => {
+    settledRef.current = true;
+    setValue(name);
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={commitRename}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") commitRename();
+          if (e.key === "Escape") cancelRename();
+        }}
+        className="w-full bg-zinc-800 border border-emerald-700 text-zinc-200 text-xs rounded px-2 py-1.5 outline-none"
+      />
+    );
+  }
+
+  return (
+    <div className="group flex items-center gap-2 px-2 py-1.5 rounded text-xs bg-zinc-800/50">
+      <span className="flex-1 min-w-0 truncate text-zinc-300">{name}</span>
+      <button
+        onClick={startEditing}
+        className="flex-shrink-0 hidden group-hover:block text-zinc-500 hover:text-zinc-200"
+        title="Rename category"
+      >
+        ✎
+      </button>
+      <button
+        onClick={onDelete}
+        className="flex-shrink-0 hidden group-hover:block text-zinc-500 hover:text-red-400"
+        title="Delete category"
+      >
+        ✕
+      </button>
+    </div>
+  );
+}
+
 export default function Settings() {
   const settingsOpen = useVaultStore((s) => s.settingsOpen);
   const setSettingsOpen = useVaultStore((s) => s.setSettingsOpen);
   const loadSnippets = useVaultStore((s) => s.loadSnippets);
+  const tagCategories = useVaultStore((s) => s.tagCategories);
+  const tagCategoryByName = useVaultStore((s) => s.tagCategoryByName);
+  const createTagCategory = useVaultStore((s) => s.createTagCategory);
+  const renameTagCategory = useVaultStore((s) => s.renameTagCategory);
+  const deleteTagCategory = useVaultStore((s) => s.deleteTagCategory);
+  const setTagCategory = useVaultStore((s) => s.setTagCategory);
+  const allTags = useVaultStore((s) => s.allTags);
 
   const defaultLanguage = useSettingsStore((s) => s.defaultLanguage);
   const setDefaultLanguage = useSettingsStore((s) => s.setDefaultLanguage);
@@ -19,6 +96,33 @@ export default function Settings() {
   const [dataDir, setDataDir] = useState<string>("");
   const [strategy, setStrategy] = useState<ImportStrategy>("rename");
   const [busy, setBusy] = useState(false);
+
+  const [addingCategory, setAddingCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  // See Sidebar's addFolderSettledRef: guards against a double-submit when
+  // unmounting this input on Enter fires a stale-closure blur afterward.
+  const addCategorySettledRef = useRef(false);
+
+  const openAddCategory = () => {
+    addCategorySettledRef.current = false;
+    setNewCategoryName("");
+    setAddingCategory(true);
+  };
+
+  const submitNewCategory = () => {
+    if (addCategorySettledRef.current) return;
+    addCategorySettledRef.current = true;
+    const trimmed = newCategoryName.trim();
+    if (trimmed) createTagCategory(trimmed);
+    setNewCategoryName("");
+    setAddingCategory(false);
+  };
+
+  const cancelNewCategory = () => {
+    addCategorySettledRef.current = true;
+    setNewCategoryName("");
+    setAddingCategory(false);
+  };
 
   useEffect(() => {
     if (settingsOpen) {
@@ -157,6 +261,68 @@ export default function Settings() {
                 <option key={l} value={l}>{l}</option>
               ))}
             </select>
+          </Section>
+
+          {/* Tag categories */}
+          <Section
+            title="Tag categories"
+            hint="Group tags into categories (e.g. Language, Tool, Topic) so the snippet list and card view auto-sort into sections by tag. Uncategorized tags fall into their own section."
+          >
+            <div className="space-y-3">
+              {tagCategories.length > 0 && (
+                <div className="flex flex-col gap-1">
+                  {tagCategories.map((category) => (
+                    <TagCategoryRow
+                      key={category.id}
+                      name={category.name}
+                      onRename={(name) => renameTagCategory(category.id, name)}
+                      onDelete={() => deleteTagCategory(category.id)}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {addingCategory ? (
+                <input
+                  autoFocus
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  onBlur={submitNewCategory}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") submitNewCategory();
+                    if (e.key === "Escape") cancelNewCategory();
+                  }}
+                  placeholder="category name"
+                  className="w-full bg-zinc-800 border border-emerald-700 text-zinc-200 text-xs rounded px-2 py-1.5 outline-none placeholder-zinc-600"
+                />
+              ) : (
+                <Btn onClick={openAddCategory}>+ new category</Btn>
+              )}
+
+              {allTags().length > 0 && (
+                <div className="pt-2 border-t border-zinc-800 space-y-1.5 max-h-48 overflow-y-auto">
+                  {allTags().map((tag) => (
+                    <div key={tag} className="flex items-center justify-between gap-2">
+                      <span className="text-xs text-zinc-400 truncate">#{tag}</span>
+                      <select
+                        value={tagCategoryByName[tag] ?? ""}
+                        onChange={(e) =>
+                          setTagCategory(tag, e.target.value === "" ? null : Number(e.target.value))
+                        }
+                        className="bg-zinc-800 border border-zinc-700 text-zinc-300 text-xs rounded px-1.5 py-1 outline-none focus:border-emerald-700 cursor-pointer flex-shrink-0"
+                      >
+                        <option value="">Uncategorized</option>
+                        {tagCategories.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </Section>
 
           {/* Import / export */}
