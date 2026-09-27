@@ -1,5 +1,17 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Folder, ImportResult, ImportStrategy, MarkdownDirResult, NewFolder, NewSnippet, Snippet, SnippetPatch } from "./types";
+import type {
+  Folder,
+  ImportResult,
+  ImportStrategy,
+  MarkdownDirResult,
+  NewFolder,
+  NewSnippet,
+  NewTagCategory,
+  Snippet,
+  SnippetPatch,
+  TagCategory,
+  TagWithCategory,
+} from "./types";
 
 export const api = {
   listSnippets: () =>
@@ -58,4 +70,22 @@ export const api = {
 
   importMarkdownDir: (path: string, strategy: ImportStrategy) =>
     invoke<MarkdownDirResult>("import_markdown_dir", { path, strategy }),
+
+  listTagCategories: () =>
+    invoke<TagCategory[]>("list_tag_categories"),
+
+  createTagCategory: (name: string) =>
+    invoke<TagCategory>("create_tag_category", { input: { name } as NewTagCategory }),
+
+  renameTagCategory: (id: number, name: string) =>
+    invoke<TagCategory>("rename_tag_category", { id, name }),
+
+  deleteTagCategory: (id: number) =>
+    invoke<void>("delete_tag_category", { id }),
+
+  setTagCategory: (tagName: string, categoryId: number | null) =>
+    invoke<void>("set_tag_category", { tagName, categoryId }),
+
+  listTagsWithCategories: () =>
+    invoke<TagWithCategory[]>("list_tags_with_categories"),
 };

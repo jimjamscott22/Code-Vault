@@ -3,6 +3,22 @@ export interface Tag {
   name: string;
 }
 
+export interface TagCategory {
+  id: number;
+  name: string;
+  sort_order: number;
+  created_at: number;
+}
+
+export interface NewTagCategory {
+  name: string;
+}
+
+export interface TagWithCategory {
+  name: string;
+  category_id: number | null;
+}
+
 export interface Folder {
   id: number;
   name: string;

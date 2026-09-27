@@ -36,6 +36,12 @@ pub fn run() {
             commands::import_vault,
             commands::import_markdown,
             commands::import_markdown_dir,
+            commands::list_tag_categories,
+            commands::create_tag_category,
+            commands::rename_tag_category,
+            commands::delete_tag_category,
+            commands::set_tag_category,
+            commands::list_tags_with_categories,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

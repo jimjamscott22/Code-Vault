@@ -1,6 +1,9 @@
 use std::sync::Mutex;
 
-use crate::db::{self, Folder, ImportResult, MarkdownDirResult, NewFolder, NewSnippet, Snippet, SnippetPatch};
+use crate::db::{
+    self, Folder, ImportResult, MarkdownDirResult, NewFolder, NewSnippet, NewTagCategory,
+    Snippet, SnippetPatch, TagCategory, TagWithCategory,
+};
 use tauri::{AppHandle, Manager, State};
 
 pub struct DbState(pub Mutex<rusqlite::Connection>);
@@ -178,4 +181,44 @@ pub fn import_markdown_dir(
         }
     }
     Ok(result)
+}
+
+#[tauri::command]
+pub fn list_tag_categories(state: State<'_, DbState>) -> CmdResult<Vec<TagCategory>> {
+    let conn = state.0.lock().map_err(|_| "db lock poisoned")?;
+    db::list_tag_categories(&conn).map_err(e)
+}
+
+#[tauri::command]
+pub fn create_tag_category(state: State<'_, DbState>, input: NewTagCategory) -> CmdResult<TagCategory> {
+    let conn = state.0.lock().map_err(|_| "db lock poisoned")?;
+    db::create_tag_category(&conn, input).map_err(e)
+}
+
+#[tauri::command]
+pub fn rename_tag_category(state: State<'_, DbState>, id: i64, name: String) -> CmdResult<TagCategory> {
+    let conn = state.0.lock().map_err(|_| "db lock poisoned")?;
+    db::rename_tag_category(&conn, id, &name).map_err(e)
+}
+
+#[tauri::command]
+pub fn delete_tag_category(state: State<'_, DbState>, id: i64) -> CmdResult<()> {
+    let conn = state.0.lock().map_err(|_| "db lock poisoned")?;
+    db::delete_tag_category(&conn, id).map_err(e)
+}
+
+#[tauri::command]
+pub fn set_tag_category(
+    state: State<'_, DbState>,
+    tag_name: String,
+    category_id: Option<i64>,
+) -> CmdResult<()> {
+    let conn = state.0.lock().map_err(|_| "db lock poisoned")?;
+    db::set_tag_category(&conn, &tag_name, category_id).map_err(e)
+}
+
+#[tauri::command]
+pub fn list_tags_with_categories(state: State<'_, DbState>) -> CmdResult<Vec<TagWithCategory>> {
+    let conn = state.0.lock().map_err(|_| "db lock poisoned")?;
+    db::list_tags_with_categories(&conn).map_err(e)
 }
