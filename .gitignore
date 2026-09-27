@@ -38,6 +38,9 @@ target
 # Contains mutation testing data
 **/mutants.out*/
 
+# superpowers plan execution workspace (ledgers, briefs, review packages)
+.superpowers/
+
 # RustRover
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
 #  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
