@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { api } from "./api";
 import { toast } from "./toast";
 import { useSettingsStore } from "./settings";
-import type { Folder, Snippet, SnippetPatch } from "./types";
+import type { Folder, Snippet, SnippetPatch, TagCategory } from "./types";
 
 /** Sentinel for the "no folder" filter, distinct from `null` (= "all folders"). */
 export const UNFILED = "unfiled" as const;
@@ -11,6 +11,9 @@ export type FolderFilter = number | typeof UNFILED | null;
 interface VaultState {
   snippets: Snippet[];
   folders: Folder[];
+  tagCategories: TagCategory[];
+  /** tag name -> category id, or `null` for an uncategorized (known) tag */
+  tagCategoryByName: Record<string, number | null>;
   selectedId: number | null;
   searchQuery: string;
   activeTag: string | null;
@@ -27,6 +30,7 @@ interface VaultState {
   // lifecycle
   loadSnippets: () => Promise<void>;
   loadFolders: () => Promise<void>;
+  loadTagCategories: () => Promise<void>;
 
   // selection & filter
   selectSnippet: (id: number) => void;
@@ -52,16 +56,23 @@ interface VaultState {
   createFolder: (name: string) => Promise<void>;
   renameFolder: (id: number, name: string) => Promise<void>;
   deleteFolder: (id: number) => Promise<void>;
+  createTagCategory: (name: string) => Promise<void>;
+  renameTagCategory: (id: number, name: string) => Promise<void>;
+  deleteTagCategory: (id: number) => Promise<void>;
+  setTagCategory: (tagName: string, categoryId: number | null) => Promise<void>;
 
   // computed
   filteredSnippets: () => Snippet[];
   selectedSnippet: () => Snippet | null;
   allTags: () => string[];
+  groupedSnippets: () => { category: TagCategory | null; snippets: Snippet[] }[];
 }
 
 export const useVaultStore = create<VaultState>((set, get) => ({
   snippets: [],
   folders: [],
+  tagCategories: [],
+  tagCategoryByName: {},
   selectedId: null,
   searchQuery: "",
   activeTag: null,
@@ -92,6 +103,23 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     } catch (err) {
       console.error("loadFolders:", err);
       toast.error(`Failed to load folders: ${err}`);
+    }
+  },
+
+  loadTagCategories: async () => {
+    try {
+      const [tagCategories, tagsWithCategories] = await Promise.all([
+        api.listTagCategories(),
+        api.listTagsWithCategories(),
+      ]);
+      const tagCategoryByName: Record<string, number | null> = {};
+      tagsWithCategories.forEach((t) => {
+        tagCategoryByName[t.name] = t.category_id;
+      });
+      set({ tagCategories, tagCategoryByName });
+    } catch (err) {
+      console.error("loadTagCategories:", err);
+      toast.error(`Failed to load tag categories: ${err}`);
     }
   },
 
@@ -237,6 +265,63 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     }
   },
 
+  createTagCategory: async (name) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    try {
+      const category = await api.createTagCategory(trimmed);
+      set((s) => ({ tagCategories: [...s.tagCategories, category] }));
+    } catch (err) {
+      console.error("createTagCategory:", err);
+      toast.error(`Failed to create tag category: ${err}`);
+    }
+  },
+
+  renameTagCategory: async (id, name) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    try {
+      const category = await api.renameTagCategory(id, trimmed);
+      set((s) => ({
+        tagCategories: s.tagCategories.map((c) => (c.id === id ? category : c)),
+      }));
+    } catch (err) {
+      console.error("renameTagCategory:", err);
+      toast.error(`Failed to rename tag category: ${err}`);
+    }
+  },
+
+  deleteTagCategory: async (id) => {
+    try {
+      await api.deleteTagCategory(id);
+      set((s) => ({
+        tagCategories: s.tagCategories.filter((c) => c.id !== id),
+        tagCategoryByName: Object.fromEntries(
+          Object.entries(s.tagCategoryByName).map(([tag, catId]) => [
+            tag,
+            catId === id ? null : catId,
+          ]),
+        ),
+      }));
+      toast.success("Tag category deleted");
+    } catch (err) {
+      console.error("deleteTagCategory:", err);
+      toast.error(`Failed to delete tag category: ${err}`);
+    }
+  },
+
+  setTagCategory: async (tagName, categoryId) => {
+    try {
+      await api.setTagCategory(tagName, categoryId);
+      set((s) => ({
+        tagCategoryByName: { ...s.tagCategoryByName, [tagName]: categoryId },
+      }));
+    } catch (err) {
+      console.error("setTagCategory:", err);
+      toast.error(`Failed to update tag category: ${err}`);
+    }
+  },
+
   filteredSnippets: () => {
     const { snippets, searchQuery, activeTag, activeLanguage, activeFolder } = get();
     const q = searchQuery.toLowerCase();
@@ -266,5 +351,48 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     const tagSet = new Set<string>();
     snippets.forEach((s) => s.tags.forEach((t) => tagSet.add(t)));
     return Array.from(tagSet).sort();
+  },
+
+  groupedSnippets: () => {
+    const { tagCategories, tagCategoryByName } = get();
+    const snippets = get().filteredSnippets();
+
+    const buckets = new Map<number | null, Snippet[]>();
+    for (const snippet of snippets) {
+      const categoryIds = new Set<number | null>();
+      for (const tag of snippet.tags) {
+        categoryIds.add(tagCategoryByName[tag] ?? null);
+      }
+      if (categoryIds.size === 0) categoryIds.add(null);
+      for (const categoryId of categoryIds) {
+        const bucket = buckets.get(categoryId);
+        if (bucket) bucket.push(snippet);
+        else buckets.set(categoryId, [snippet]);
+      }
+    }
+
+    const sortBucket = (categoryId: number | null, items: Snippet[]) => {
+      const matchingTags = new Set(
+        Object.entries(tagCategoryByName)
+          .filter(([, id]) => id === categoryId)
+          .map(([tag]) => tag),
+      );
+      const firstMatchingTag = (s: Snippet) =>
+        s.tags.find((t) => matchingTags.has(t)) ?? "";
+      return [...items].sort((a, b) => {
+        const cmp = firstMatchingTag(a).localeCompare(firstMatchingTag(b));
+        return cmp !== 0 ? cmp : a.title.localeCompare(b.title);
+      });
+    };
+
+    const result: { category: TagCategory | null; snippets: Snippet[] }[] = [];
+    for (const category of tagCategories) {
+      const items = buckets.get(category.id);
+      if (items?.length) result.push({ category, snippets: sortBucket(category.id, items) });
+    }
+    const uncategorized = buckets.get(null);
+    if (uncategorized?.length) result.push({ category: null, snippets: sortBucket(null, uncategorized) });
+
+    return result;
   },
 }));
