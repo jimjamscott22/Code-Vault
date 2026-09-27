@@ -58,6 +58,28 @@ pub struct SnippetPatch {
     pub favorite: Option<bool>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct TagCategory {
+    pub id: i64,
+    pub name: String,
+    pub sort_order: i64,
+    pub created_at: i64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct NewTagCategory {
+    pub name: String,
+}
+
+/// One row per known tag, with its category (if any). Distinct from
+/// `Snippet.tags` (a flat `Vec<String>`) — this is the lookup table the
+/// frontend joins against tag names to build grouped sections.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct TagWithCategory {
+    pub name: String,
+    pub category_id: Option<i64>,
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -173,6 +195,16 @@ fn migrate(conn: &Connection) -> Result<()> {
              );
              ALTER TABLE snippets ADD COLUMN folder_id INTEGER;
              CREATE INDEX IF NOT EXISTS idx_snippets_folder_id ON snippets(folder_id);",
+        ),
+        (
+            3,
+            "CREATE TABLE IF NOT EXISTS tag_categories (
+                 id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                 name       TEXT UNIQUE NOT NULL,
+                 sort_order INTEGER NOT NULL,
+                 created_at INTEGER NOT NULL
+             );
+             ALTER TABLE tags ADD COLUMN category_id INTEGER;",
         ),
     ];
 
@@ -354,6 +386,87 @@ pub fn set_snippet_tags(conn: &Connection, snippet_id: i64, tag_names: &[String]
         )?;
     }
     Ok(())
+}
+
+fn row_to_tag_category(row: &rusqlite::Row<'_>) -> rusqlite::Result<TagCategory> {
+    Ok(TagCategory {
+        id: row.get(0)?,
+        name: row.get(1)?,
+        sort_order: row.get(2)?,
+        created_at: row.get(3)?,
+    })
+}
+
+pub fn list_tag_categories(conn: &Connection) -> Result<Vec<TagCategory>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, name, sort_order, created_at FROM tag_categories ORDER BY sort_order",
+    )?;
+    let rows = stmt.query_map([], row_to_tag_category)?;
+    rows.map(|r| r.map_err(anyhow::Error::from)).collect()
+}
+
+fn get_tag_category(conn: &Connection, id: i64) -> Result<TagCategory> {
+    conn.query_row(
+        "SELECT id, name, sort_order, created_at FROM tag_categories WHERE id = ?1",
+        params![id],
+        row_to_tag_category,
+    )
+    .with_context(|| format!("tag category {id} not found"))
+}
+
+pub fn create_tag_category(conn: &Connection, input: NewTagCategory) -> Result<TagCategory> {
+    let name = input.name.trim();
+    let next_sort_order: i64 = conn.query_row(
+        "SELECT COALESCE(MAX(sort_order), -1) + 1 FROM tag_categories",
+        [],
+        |r| r.get(0),
+    )?;
+    conn.execute(
+        "INSERT INTO tag_categories (name, sort_order, created_at) VALUES (?1, ?2, ?3)",
+        params![name, next_sort_order, now()],
+    )?;
+    get_tag_category(conn, conn.last_insert_rowid())
+}
+
+pub fn rename_tag_category(conn: &Connection, id: i64, name: &str) -> Result<TagCategory> {
+    conn.execute(
+        "UPDATE tag_categories SET name = ?1 WHERE id = ?2",
+        params![name.trim(), id],
+    )?;
+    get_tag_category(conn, id)
+}
+
+/// Delete a tag category. Tags that belonged to it become uncategorized
+/// (`category_id` set to NULL) rather than being deleted themselves, and
+/// snippets are untouched — mirrors `delete_folder`'s un-filing of snippets.
+pub fn delete_tag_category(conn: &Connection, id: i64) -> Result<()> {
+    conn.execute(
+        "UPDATE tags SET category_id = NULL WHERE category_id = ?1",
+        params![id],
+    )?;
+    conn.execute("DELETE FROM tag_categories WHERE id = ?1", params![id])?;
+    Ok(())
+}
+
+/// Assign `tag_name` to `category_id` (`None` uncategorizes it). No-ops
+/// silently if the tag doesn't exist yet (nothing to assign a category to).
+pub fn set_tag_category(conn: &Connection, tag_name: &str, category_id: Option<i64>) -> Result<()> {
+    conn.execute(
+        "UPDATE tags SET category_id = ?1 WHERE name = ?2",
+        params![category_id, tag_name],
+    )?;
+    Ok(())
+}
+
+pub fn list_tags_with_categories(conn: &Connection) -> Result<Vec<TagWithCategory>> {
+    let mut stmt = conn.prepare("SELECT name, category_id FROM tags ORDER BY name")?;
+    let rows = stmt.query_map([], |row| {
+        Ok(TagWithCategory {
+            name: row.get(0)?,
+            category_id: row.get(1)?,
+        })
+    })?;
+    rows.map(|r| r.map_err(anyhow::Error::from)).collect()
 }
 
 fn row_to_folder(row: &rusqlite::Row<'_>) -> rusqlite::Result<Folder> {
@@ -981,5 +1094,44 @@ print(\"two\")
         assert!(list_folders(&conn).unwrap().is_empty());
         let unfiled = get_snippet(&conn, snip.id).unwrap();
         assert_eq!(unfiled.folder_id, None);
+    }
+
+    #[test]
+    fn tag_category_lifecycle_assigns_and_unassigns_tags() {
+        let conn = test_conn();
+        create_snippet(&conn, sample("One")).unwrap(); // tagged "shell" by `sample()`
+        let category = create_tag_category(&conn, NewTagCategory { name: "Language".to_string() }).unwrap();
+        assert_eq!(category.name, "Language");
+        assert_eq!(category.sort_order, 0);
+
+        set_tag_category(&conn, "shell", Some(category.id)).unwrap();
+        let tags = list_tags_with_categories(&conn).unwrap();
+        let shell = tags.iter().find(|t| t.name == "shell").unwrap();
+        assert_eq!(shell.category_id, Some(category.id));
+
+        let renamed = rename_tag_category(&conn, category.id, "Languages").unwrap();
+        assert_eq!(renamed.name, "Languages");
+
+        delete_tag_category(&conn, category.id).unwrap();
+        assert!(list_tag_categories(&conn).unwrap().is_empty());
+        let tags = list_tags_with_categories(&conn).unwrap();
+        let shell = tags.iter().find(|t| t.name == "shell").unwrap();
+        assert_eq!(shell.category_id, None);
+    }
+
+    #[test]
+    fn set_tag_category_on_unknown_tag_is_a_noop() {
+        let conn = test_conn();
+        let category = create_tag_category(&conn, NewTagCategory { name: "Tool".to_string() }).unwrap();
+        set_tag_category(&conn, "does-not-exist", Some(category.id)).unwrap();
+        assert!(list_tags_with_categories(&conn).unwrap().is_empty());
+    }
+
+    #[test]
+    fn create_tag_category_rejects_duplicate_name() {
+        let conn = test_conn();
+        create_tag_category(&conn, NewTagCategory { name: "Topic".to_string() }).unwrap();
+        let result = create_tag_category(&conn, NewTagCategory { name: "Topic".to_string() });
+        assert!(result.is_err());
     }
 }
