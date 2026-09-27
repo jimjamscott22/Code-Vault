@@ -17,6 +17,15 @@ function StarIcon({ filled }: { filled: boolean }) {
   );
 }
 
+function EmptyState() {
+  return (
+    <div className="flex flex-col items-center justify-center h-full text-zinc-600 font-mono text-sm p-6 text-center">
+      <span className="text-2xl mb-2">◌</span>
+      no snippets found
+    </div>
+  );
+}
+
 interface RowProps {
   snippet: Snippet;
   selected: boolean;
@@ -60,27 +69,47 @@ function SnippetRow({ snippet, selected, onClick }: RowProps) {
 }
 
 export default function SnippetList() {
-  const { selectedId, selectSnippet, filteredSnippets } = useVaultStore();
-  const snippets = filteredSnippets();
+  const { selectedId, selectSnippet, filteredSnippets, groupedSnippets, activeTag } = useVaultStore();
 
-  if (snippets.length === 0) {
+  if (activeTag) {
+    const snippets = filteredSnippets();
+    if (snippets.length === 0) return <EmptyState />;
     return (
-      <div className="flex flex-col items-center justify-center h-full text-zinc-600 font-mono text-sm p-6 text-center">
-        <span className="text-2xl mb-2">◌</span>
-        no snippets found
+      <div className="overflow-y-auto h-full">
+        {snippets.map((s) => (
+          <SnippetRow
+            key={s.id}
+            snippet={s}
+            selected={s.id === selectedId}
+            onClick={() => selectSnippet(s.id)}
+          />
+        ))}
       </div>
     );
   }
 
+  const groups = groupedSnippets();
+  if (groups.length === 0) return <EmptyState />;
+
   return (
     <div className="overflow-y-auto h-full">
-      {snippets.map((s) => (
-        <SnippetRow
-          key={s.id}
-          snippet={s}
-          selected={s.id === selectedId}
-          onClick={() => selectSnippet(s.id)}
-        />
+      {groups.map(({ category, snippets }) => (
+        <div key={category?.id ?? "uncategorized"}>
+          <div className="px-3 py-1.5 border-b border-zinc-800 bg-zinc-900/80">
+            <span className="text-zinc-500 font-mono text-[11px] uppercase tracking-widest">
+              {category?.name ?? "Uncategorized"}
+            </span>
+            <span className="text-zinc-600 font-mono text-[11px] ml-1.5">{snippets.length}</span>
+          </div>
+          {snippets.map((s) => (
+            <SnippetRow
+              key={s.id}
+              snippet={s}
+              selected={s.id === selectedId}
+              onClick={() => selectSnippet(s.id)}
+            />
+          ))}
+        </div>
       ))}
     </div>
   );
