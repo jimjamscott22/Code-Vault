@@ -41,35 +41,68 @@ function SnippetCard({ snippet, selected, onOpen }: CardProps) {
   );
 }
 
-export default function SnippetCards() {
-  const { selectedId, selectSnippet, filteredSnippets } = useVaultStore();
-  const setViewMode = useSettingsStore((s) => s.setViewMode);
-  const snippets = filteredSnippets();
+function CardGrid({
+  snippets,
+  selectedId,
+  onOpen,
+}: {
+  snippets: Snippet[];
+  selectedId: number | null;
+  onOpen: (id: number) => void;
+}) {
+  return (
+    <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(220px,1fr))]">
+      {snippets.map((s) => (
+        <SnippetCard key={s.id} snippet={s} selected={s.id === selectedId} onOpen={() => onOpen(s.id)} />
+      ))}
+    </div>
+  );
+}
 
-  if (snippets.length === 0) {
+function EmptyState() {
+  return (
+    <div className="flex flex-col items-center justify-center h-full text-zinc-600 font-mono text-sm p-6 text-center bg-zinc-950">
+      <span className="text-2xl mb-2">◌</span>
+      no snippets found
+    </div>
+  );
+}
+
+export default function SnippetCards() {
+  const { selectedId, selectSnippet, filteredSnippets, groupedSnippets, activeTag } = useVaultStore();
+  const setViewMode = useSettingsStore((s) => s.setViewMode);
+
+  const openCard = (id: number) => {
+    selectSnippet(id);
+    setViewMode("list");
+  };
+
+  if (activeTag) {
+    const snippets = filteredSnippets();
+    if (snippets.length === 0) return <EmptyState />;
     return (
-      <div className="flex flex-col items-center justify-center h-full text-zinc-600 font-mono text-sm p-6 text-center bg-zinc-950">
-        <span className="text-2xl mb-2">◌</span>
-        no snippets found
+      <div className="h-full overflow-y-auto bg-zinc-950 p-5">
+        <CardGrid snippets={snippets} selectedId={selectedId} onOpen={openCard} />
       </div>
     );
   }
 
+  const groups = groupedSnippets();
+  if (groups.length === 0) return <EmptyState />;
+
   return (
-    <div className="h-full overflow-y-auto bg-zinc-950 p-5">
-      <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(220px,1fr))]">
-        {snippets.map((s) => (
-          <SnippetCard
-            key={s.id}
-            snippet={s}
-            selected={s.id === selectedId}
-            onOpen={() => {
-              selectSnippet(s.id);
-              setViewMode("list");
-            }}
-          />
-        ))}
-      </div>
+    <div className="h-full overflow-y-auto bg-zinc-950 p-5 space-y-6">
+      {groups.map(({ category, snippets }) => (
+        <div key={category?.id ?? "uncategorized"}>
+          <div className="flex items-center gap-1.5 mb-2.5">
+            <span className="text-zinc-500 font-mono text-xs uppercase tracking-widest">
+              {category?.name ?? "Uncategorized"}
+            </span>
+            <span className="text-zinc-600 font-mono text-xs">{snippets.length}</span>
+          </div>
+          <CardGrid snippets={snippets} selectedId={selectedId} onOpen={openCard} />
+        </div>
+      ))}
     </div>
   );
 }
