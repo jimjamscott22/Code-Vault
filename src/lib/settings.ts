@@ -6,20 +6,39 @@ import { create } from "zustand";
 const STORAGE_KEY = "codevault.settings";
 
 export type Theme = "dark" | "light";
-export type ViewMode = "list" | "cards" | "board";
-export const VIEW_MODES: ViewMode[] = ["list", "cards", "board"];
+export type ViewMode = "list" | "cards" | "table" | "board";
+export const VIEW_MODES: ViewMode[] = ["list", "cards", "table", "board"];
+
+export type TableSortKey = "favorite" | "title" | "language" | "folder" | "updated";
+export const TABLE_SORT_KEYS: TableSortKey[] = ["favorite", "title", "language", "folder", "updated"];
+export interface TableSort {
+  key: TableSortKey;
+  dir: "asc" | "desc";
+}
 
 interface Settings {
   defaultLanguage: string;
   theme: Theme;
   viewMode: ViewMode;
+  tableSort: TableSort;
 }
 
 const DEFAULTS: Settings = {
   defaultLanguage: "bash",
   theme: "dark",
   viewMode: "list",
+  tableSort: { key: "updated", dir: "desc" },
 };
+
+function isTableSort(value: unknown): value is TableSort {
+  const v = value as Partial<TableSort> | null;
+  return (
+    typeof v === "object" &&
+    v !== null &&
+    TABLE_SORT_KEYS.includes(v.key as TableSortKey) &&
+    (v.dir === "asc" || v.dir === "desc")
+  );
+}
 
 function load(): Settings {
   try {
@@ -27,6 +46,7 @@ function load(): Settings {
     if (!raw) return DEFAULTS;
     const merged: Settings = { ...DEFAULTS, ...JSON.parse(raw) };
     if (!VIEW_MODES.includes(merged.viewMode)) merged.viewMode = DEFAULTS.viewMode;
+    if (!isTableSort(merged.tableSort)) merged.tableSort = DEFAULTS.tableSort;
     return merged;
   } catch {
     return DEFAULTS;
@@ -46,6 +66,7 @@ interface SettingsState extends Settings {
   setTheme: (theme: Theme) => void;
   setViewMode: (mode: ViewMode) => void;
   cycleViewMode: () => void;
+  setTableSort: (sort: TableSort) => void;
 }
 
 const initial = load();
@@ -70,6 +91,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     const i = VIEW_MODES.indexOf(get().viewMode);
     get().setViewMode(VIEW_MODES[(i + 1) % VIEW_MODES.length]);
   },
+  setTableSort: (tableSort) => {
+    set({ tableSort });
+    persist(get());
+  },
 }));
 
 function persist(state: Settings) {
@@ -80,6 +105,7 @@ function persist(state: Settings) {
         defaultLanguage: state.defaultLanguage,
         theme: state.theme,
         viewMode: state.viewMode,
+        tableSort: state.tableSort,
       }),
     );
   } catch {

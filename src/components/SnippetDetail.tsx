@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
+import { formatDate } from "../lib/date";
 import { LANGUAGES } from "../lib/languages";
 import { useVaultStore } from "../lib/store";
 import { toast } from "../lib/toast";
@@ -166,9 +167,7 @@ export default function SnippetDetail() {
     );
   }
 
-  const updatedDate = new Date(snippet.updated_at * 1000).toLocaleDateString("en-GB", {
-    day: "2-digit", month: "short", year: "numeric",
-  });
+  const updatedDate = formatDate(snippet.updated_at);
 
   return (
     <div className="flex flex-col h-full bg-zinc-950">

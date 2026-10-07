@@ -215,9 +215,19 @@ function BoardIcon() {
   );
 }
 
+function TableIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+      <rect x="3.75" y="4.75" width="16.5" height="14.5" rx="1" />
+      <path d="M3.75 9.5h16.5M9.5 9.5v9.75" />
+    </svg>
+  );
+}
+
 const VIEW_OPTIONS: Record<ViewMode, { label: string; Icon: () => React.JSX.Element }> = {
   list: { label: "List view", Icon: ListIcon },
   cards: { label: "Card view", Icon: GridIcon },
+  table: { label: "Table view", Icon: TableIcon },
   board: { label: "Board view", Icon: BoardIcon },
 };
 

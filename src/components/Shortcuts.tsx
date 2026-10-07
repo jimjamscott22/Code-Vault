@@ -10,7 +10,7 @@ import { useSettingsStore } from "../lib/settings";
  *   Ctrl/Cmd+D  toggle favourite of the selected snippet
  *   Ctrl/Cmd+/  toggle the notes pane
  *   Ctrl/Cmd+,  toggle settings
- *   Ctrl/Cmd+G  cycle list / card / board view
+ *   Ctrl/Cmd+G  cycle list / card / table / board view
  *   Escape      close the command palette / settings
  *
  * Ctrl+F (focus search) lives in Sidebar; Ctrl+S (flush save) lives in
