@@ -3,6 +3,7 @@ import DeleteModal from "./DeleteModal";
 import Settings from "./Settings";
 import Shortcuts from "./Shortcuts";
 import Sidebar from "./Sidebar";
+import SnippetBoard from "./SnippetBoard";
 import SnippetCards from "./SnippetCards";
 import SnippetDetail from "./SnippetDetail";
 import Toaster from "./Toaster";
@@ -18,9 +19,15 @@ export default function Layout() {
         <Sidebar />
       </div>
 
-      {/* Main pane: detail editor or card grid */}
+      {/* Main pane: detail editor, card grid, or folder board */}
       <div className="flex-1 min-w-0 h-full overflow-hidden">
-        {viewMode === "cards" ? <SnippetCards /> : <SnippetDetail />}
+        {viewMode === "cards" ? (
+          <SnippetCards />
+        ) : viewMode === "board" ? (
+          <SnippetBoard />
+        ) : (
+          <SnippetDetail />
+        )}
       </div>
 
       {/* Global overlays + handlers */}

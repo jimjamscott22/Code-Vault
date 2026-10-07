@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from "react";
 import { UNFILED, useVaultStore } from "../lib/store";
-import { useSettingsStore } from "../lib/settings";
+import { VIEW_MODES, useSettingsStore, type ViewMode } from "../lib/settings";
 import type { Folder } from "../lib/types";
 import SnippetList from "./SnippetList";
 
@@ -197,6 +197,30 @@ function GridIcon() {
   );
 }
 
+function ListIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+      <path strokeLinecap="round" d="M4 6h16M4 12h16M4 18h16" />
+    </svg>
+  );
+}
+
+function BoardIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+      <rect x="3.75" y="3.75" width="4.5" height="16.5" rx="1" />
+      <rect x="9.75" y="3.75" width="4.5" height="11" rx="1" />
+      <rect x="15.75" y="3.75" width="4.5" height="13.5" rx="1" />
+    </svg>
+  );
+}
+
+const VIEW_OPTIONS: Record<ViewMode, { label: string; Icon: () => React.JSX.Element }> = {
+  list: { label: "List view", Icon: ListIcon },
+  cards: { label: "Card view", Icon: GridIcon },
+  board: { label: "Board view", Icon: BoardIcon },
+};
+
 export default function Sidebar() {
   const {
     searchQuery, setSearchQuery,
@@ -209,7 +233,7 @@ export default function Sidebar() {
   } = useVaultStore();
 
   const viewMode = useSettingsStore((s) => s.viewMode);
-  const toggleViewMode = useSettingsStore((s) => s.toggleViewMode);
+  const setViewMode = useSettingsStore((s) => s.setViewMode);
 
   const tags = allTags();
   const languages = Array.from(new Set(snippets.map((s) => s.language))).sort();
@@ -357,15 +381,6 @@ export default function Sidebar() {
         </div>
         <div className="flex items-center gap-1.5">
           <button
-            onClick={toggleViewMode}
-            className={`p-1.5 transition-colors ${
-              viewMode === "cards" ? "text-emerald-400" : "text-zinc-500 hover:text-zinc-200"
-            }`}
-            title={viewMode === "cards" ? "List view (Ctrl+G)" : "Card view (Ctrl+G)"}
-          >
-            <GridIcon />
-          </button>
-          <button
             onClick={() => setSettingsOpen(true)}
             className="p-1.5 text-zinc-500 hover:text-zinc-200 transition-colors"
             title="Settings"
@@ -400,6 +415,30 @@ export default function Sidebar() {
               ✕
             </button>
           )}
+        </div>
+
+        {/* View switcher */}
+        <div className="mt-2 flex items-center justify-between">
+          <span className="text-zinc-600 font-mono text-xs uppercase tracking-widest">View</span>
+          <div className="flex items-center gap-0.5 p-0.5 bg-zinc-800 border border-zinc-700 rounded">
+            {VIEW_MODES.map((mode) => {
+              const { label, Icon } = VIEW_OPTIONS[mode];
+              const active = viewMode === mode;
+              return (
+                <button
+                  key={mode}
+                  onClick={() => setViewMode(mode)}
+                  aria-pressed={active}
+                  className={`p-1 rounded transition-colors ${
+                    active ? "text-emerald-400 bg-zinc-700" : "text-zinc-500 hover:text-zinc-200"
+                  }`}
+                  title={`${label} (Ctrl+G to cycle)`}
+                >
+                  <Icon />
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 

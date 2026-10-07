@@ -6,7 +6,8 @@ import { create } from "zustand";
 const STORAGE_KEY = "codevault.settings";
 
 export type Theme = "dark" | "light";
-export type ViewMode = "list" | "cards";
+export type ViewMode = "list" | "cards" | "board";
+export const VIEW_MODES: ViewMode[] = ["list", "cards", "board"];
 
 interface Settings {
   defaultLanguage: string;
@@ -23,7 +24,10 @@ const DEFAULTS: Settings = {
 function load(): Settings {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? { ...DEFAULTS, ...JSON.parse(raw) } : DEFAULTS;
+    if (!raw) return DEFAULTS;
+    const merged: Settings = { ...DEFAULTS, ...JSON.parse(raw) };
+    if (!VIEW_MODES.includes(merged.viewMode)) merged.viewMode = DEFAULTS.viewMode;
+    return merged;
   } catch {
     return DEFAULTS;
   }
@@ -41,7 +45,7 @@ interface SettingsState extends Settings {
   setDefaultLanguage: (lang: string) => void;
   setTheme: (theme: Theme) => void;
   setViewMode: (mode: ViewMode) => void;
-  toggleViewMode: () => void;
+  cycleViewMode: () => void;
 }
 
 const initial = load();
@@ -62,7 +66,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     set({ viewMode });
     persist(get());
   },
-  toggleViewMode: () => get().setViewMode(get().viewMode === "list" ? "cards" : "list"),
+  cycleViewMode: () => {
+    const i = VIEW_MODES.indexOf(get().viewMode);
+    get().setViewMode(VIEW_MODES[(i + 1) % VIEW_MODES.length]);
+  },
 }));
 
 function persist(state: Settings) {
