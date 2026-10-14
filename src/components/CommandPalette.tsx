@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Command } from "cmdk";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { useVaultStore } from "../lib/store";
+import { parsePlaceholders } from "../lib/template";
 import { toast } from "../lib/toast";
 import LanguageBadge from "./LanguageBadge";
 
@@ -17,6 +18,7 @@ export default function CommandPalette() {
     selectSnippet,
     toggleNotes,
     setSettingsOpen,
+    openFillTemplate,
   } = useVaultStore();
 
   const [search, setSearch] = useState("");
@@ -93,6 +95,14 @@ export default function CommandPalette() {
                   <PaletteItem value={`copy code ${selected.title}`} onSelect={copySelected}>
                     ⧉ Copy current snippet code
                   </PaletteItem>
+                  {parsePlaceholders(selected.code).length > 0 && (
+                    <PaletteItem
+                      value={`fill template placeholders variables copy ${selected.title}`}
+                      onSelect={run(() => openFillTemplate({ id: selected.id, title: selected.title, code: selected.code }))}
+                    >
+                      ⧉ Fill template &amp; copy
+                    </PaletteItem>
+                  )}
                   <PaletteItem value="toggle notes" onSelect={run(toggleNotes)}>
                     ▭ Toggle notes pane
                     <Shortcut keys="Ctrl+/" />

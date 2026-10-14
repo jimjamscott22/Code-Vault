@@ -2,8 +2,10 @@ use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use codevault_core::{
     create_snippet, delete_snippet, export_json, get_snippet, import_markdown,
-    import_vault_json, list_snippets, open_db, search_snippets, NewSnippet, Snippet,
+    import_vault_json, list_snippets, open_db, parse_placeholders, render_template,
+    search_snippets, NewSnippet, Snippet,
 };
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 // The Tauri bundle identifier determines the data-directory name on all
@@ -82,9 +84,18 @@ enum Commands {
         yes: bool,
     },
     /// Copy a snippet's code to the system clipboard
+    ///
+    /// Snippets may contain `{{name}}` or `{{name:default}}` placeholders.
+    /// Pass --var (repeatable) and/or --fill to substitute them before copying.
     Copy {
         /// Snippet ID
         id: i64,
+        /// Fill a placeholder, e.g. --var host=pi.local (repeatable)
+        #[arg(short, long = "var", value_name = "NAME=VALUE", value_parser = parse_var)]
+        vars: Vec<(String, String)>,
+        /// Fill placeholders, using defaults for any not given via --var
+        #[arg(long)]
+        fill: bool,
     },
     /// Import snippets from a JSON vault export or a Markdown file
     Import {
@@ -124,7 +135,7 @@ fn main() -> Result<()> {
             cmd_add(&conn, title, lang, tags, file, code)
         }
         Commands::Delete { id, yes } => cmd_delete(&conn, id, yes),
-        Commands::Copy { id } => cmd_copy(&conn, id),
+        Commands::Copy { id, vars, fill } => cmd_copy(&conn, id, vars, fill),
         Commands::Import { file, strategy } => cmd_import(&conn, file, &strategy),
         Commands::Export { file } => cmd_export(&conn, file),
     }
@@ -195,6 +206,17 @@ fn cmd_get(conn: &rusqlite::Connection, id: i64) -> Result<()> {
     println!("Favourite: {}", if s.favorite { "yes" } else { "no" });
     if !s.description.is_empty() {
         println!("Desc     : {}", s.description);
+    }
+    let placeholders = parse_placeholders(&s.code);
+    if !placeholders.is_empty() {
+        let vars: Vec<String> = placeholders
+            .iter()
+            .map(|p| match &p.default {
+                Some(d) => format!("{}={}", p.name, d),
+                None => p.name.clone(),
+            })
+            .collect();
+        println!("Vars     : {}", vars.join(", "));
     }
     println!();
     println!("{}", s.code);
@@ -271,12 +293,51 @@ fn cmd_delete(conn: &rusqlite::Connection, id: i64, yes: bool) -> Result<()> {
     Ok(())
 }
 
-fn cmd_copy(conn: &rusqlite::Connection, id: i64) -> Result<()> {
+fn parse_var(raw: &str) -> Result<(String, String), String> {
+    raw.split_once('=')
+        .map(|(k, v)| (k.trim().to_string(), v.to_string()))
+        .filter(|(k, _)| !k.is_empty())
+        .ok_or_else(|| format!("expected NAME=VALUE, got `{raw}`"))
+}
+
+fn cmd_copy(
+    conn: &rusqlite::Connection,
+    id: i64,
+    vars: Vec<(String, String)>,
+    fill: bool,
+) -> Result<()> {
     let s = get_snippet(conn, id)?;
+    let placeholders = parse_placeholders(&s.code);
+
+    let text = if fill || !vars.is_empty() {
+        let known: Vec<&str> = placeholders.iter().map(|p| p.name.as_str()).collect();
+        for (name, _) in &vars {
+            if !known.contains(&name.as_str()) {
+                eprintln!("warning: snippet has no placeholder named `{name}`");
+            }
+        }
+        let values: HashMap<String, String> = vars.into_iter().collect();
+        render_template(&s.code, &values).map_err(|missing| {
+            anyhow::anyhow!(
+                "missing value for placeholder(s): {} (pass --var NAME=VALUE)",
+                missing.join(", ")
+            )
+        })?
+    } else {
+        if !placeholders.is_empty() {
+            let names: Vec<&str> = placeholders.iter().map(|p| p.name.as_str()).collect();
+            eprintln!(
+                "note: copied raw template; fill {} with --var NAME=VALUE or --fill",
+                names.join(", ")
+            );
+        }
+        s.code.clone()
+    };
+
     let mut clipboard = arboard::Clipboard::new()
         .context("failed to open clipboard (is a display server / $DISPLAY / $WAYLAND_DISPLAY set?)")?;
     clipboard
-        .set_text(s.code.clone())
+        .set_text(text)
         .context("failed to write to clipboard")?;
     println!("Copied to clipboard: \"{}\" (id: {})", s.title, s.id);
     Ok(())

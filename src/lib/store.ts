@@ -8,6 +8,12 @@ import type { Folder, Snippet, SnippetPatch, TagCategory } from "./types";
 export const UNFILED = "unfiled" as const;
 export type FolderFilter = number | typeof UNFILED | null;
 
+export interface FillTemplateTarget {
+  id: number;
+  title: string;
+  code: string;
+}
+
 interface VaultState {
   snippets: Snippet[];
   folders: Folder[];
@@ -26,6 +32,9 @@ interface VaultState {
   paletteOpen: boolean;
   notesVisible: boolean;
   settingsOpen: boolean;
+  // Snippet being filled in the template dialog. Carries the code itself so
+  // the editor can pass unsaved (still-debouncing) edits.
+  fillTemplate: FillTemplateTarget | null;
 
   // lifecycle
   loadSnippets: () => Promise<void>;
@@ -44,6 +53,7 @@ interface VaultState {
   togglePalette: () => void;
   toggleNotes: () => void;
   setSettingsOpen: (open: boolean) => void;
+  openFillTemplate: (target: FillTemplateTarget | null) => void;
 
   // CRUD
   createSnippet: () => Promise<void>;
@@ -83,6 +93,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   paletteOpen: false,
   notesVisible: true,
   settingsOpen: false,
+  fillTemplate: null,
 
   loadSnippets: async () => {
     set({ isLoading: true });
@@ -131,6 +142,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
 
   setPaletteOpen: (open) => set({ paletteOpen: open }),
   togglePalette: () => set((s) => ({ paletteOpen: !s.paletteOpen })),
+  openFillTemplate: (target) => set({ fillTemplate: target }),
   toggleNotes: () => set((s) => ({ notesVisible: !s.notesVisible })),
   setSettingsOpen: (open) => set({ settingsOpen: open }),
 

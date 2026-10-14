@@ -11,10 +11,11 @@ import { useSettingsStore } from "../lib/settings";
  *   Ctrl/Cmd+/  toggle the notes pane
  *   Ctrl/Cmd+,  toggle settings
  *   Ctrl/Cmd+G  cycle list / card / table / board view
- *   Escape      close the command palette / settings
+ *   Escape      close the fill-template dialog / command palette / settings
  *
- * Ctrl+F (focus search) lives in Sidebar; Ctrl+S (flush save) lives in
- * SnippetDetail, since those act on component-local refs/state.
+ * Ctrl+F (focus search) lives in Sidebar; Ctrl+S (flush save) and Ctrl+E
+ * (fill template & copy) live in SnippetDetail, since those act on
+ * component-local refs/state.
  */
 export default function Shortcuts() {
   useEffect(() => {
@@ -23,6 +24,11 @@ export default function Shortcuts() {
       const store = useVaultStore.getState();
 
       if (e.key === "Escape") {
+        if (store.fillTemplate) {
+          e.preventDefault();
+          store.openFillTemplate(null);
+          return;
+        }
         if (store.paletteOpen) {
           e.preventDefault();
           store.setPaletteOpen(false);

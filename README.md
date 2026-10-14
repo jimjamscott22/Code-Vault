@@ -207,10 +207,25 @@ Your snippets remain at `~/.local/share/codevault/vault.db` until you delete tha
 | `Ctrl/Cmd+K` | Command palette |
 | `Ctrl/Cmd+F` | Focus search |
 | `Ctrl/Cmd+S` | Save now (flush autosave) |
+| `Ctrl/Cmd+E` | Fill template & copy (snippets with `{{placeholders}}`) |
 | `Ctrl/Cmd+D` | Toggle favourite |
 | `Ctrl/Cmd+/` | Toggle notes pane |
 | `Ctrl/Cmd+,` | Open settings |
-| `Esc` | Close palette / settings |
+| `Esc` | Close fill dialog / palette / settings |
+
+## Snippet templates
+
+Any snippet can double as a template. Write placeholders straight into the code:
+
+```bash
+docker run -d --name {{name:web}} -p {{port:8080}}:80 -v {{data_dir}}:/data {{image}}
+```
+
+- `{{name}}` is required; `{{name:default}}` falls back to `default` when left blank.
+- A name repeated in the snippet is one variable — fill it once, it's substituted everywhere.
+- Names are letters, digits, `_` and `-` (starting with a letter or `_`), with no spaces inside the braces — so Jinja/Helm `{{ var }}` and GitHub Actions `${{ secrets.X }}` are left alone.
+
+Placeholders are highlighted in the editor, and a **fill & copy** button (or `Ctrl+E`, or *Fill template & copy* in the command palette) opens a dialog with one field per variable and a live preview. `Enter` jumps to the next empty required field, then copies. Values you type are remembered per snippet until the app closes (never written to disk, since they're often hostnames or tokens). Plain **copy** still copies the raw template.
 
 ## Import / export
 
@@ -235,7 +250,11 @@ codevault add --title "Restart Pi-hole" --lang bash
 history | tail -20 | codevault import
 codevault search nginx
 codevault copy <id>
+codevault copy <id> --var host=pi.local --var port=2222   # fill template placeholders
+codevault copy <id> --fill                                # fill using defaults only
 ```
+
+`codevault get <id>` lists a template's placeholders (and defaults) on a `Vars` line. `copy` with `--var`/`--fill` errors out, naming any required placeholder left without a value.
 
 ## Roadmap
 

@@ -1,6 +1,7 @@
 import type { ComponentType } from "react";
 import CommandPalette from "./CommandPalette";
 import DeleteModal from "./DeleteModal";
+import FillTemplateModal from "./FillTemplateModal";
 import Settings from "./Settings";
 import Shortcuts from "./Shortcuts";
 import Sidebar from "./Sidebar";
@@ -36,6 +37,7 @@ export default function Layout() {
 
       {/* Global overlays + handlers */}
       <DeleteModal />
+      <FillTemplateModal />
       <CommandPalette />
       <Settings />
       <Toaster />
