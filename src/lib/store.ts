@@ -14,6 +14,11 @@ export interface FillTemplateTarget {
   code: string;
 }
 
+// The detail editor's live (possibly not yet autosaved) title/code. A plain
+// mutable ref rather than store state so keystrokes don't re-render every
+// subscriber; read on demand by `selectedFillTarget()`.
+export const editorDraft: { current: FillTemplateTarget | null } = { current: null };
+
 interface VaultState {
   snippets: Snippet[];
   folders: Folder[];
@@ -74,6 +79,8 @@ interface VaultState {
   // computed
   filteredSnippets: () => Snippet[];
   selectedSnippet: () => Snippet | null;
+  // Selected snippet as a fill-template target, preferring unsaved editor text
+  selectedFillTarget: () => FillTemplateTarget | null;
   allTags: () => string[];
   groupedSnippets: () => { category: TagCategory | null; snippets: Snippet[] }[];
 }
@@ -356,6 +363,14 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   selectedSnippet: () => {
     const { snippets, selectedId } = get();
     return snippets.find((s) => s.id === selectedId) ?? null;
+  },
+
+  selectedFillTarget: () => {
+    const snippet = get().selectedSnippet();
+    if (!snippet) return null;
+    const draft = editorDraft.current;
+    if (draft && draft.id === snippet.id) return draft;
+    return { id: snippet.id, title: snippet.title, code: snippet.code };
   },
 
   allTags: () => {

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { formatDate } from "../lib/date";
 import { LANGUAGES } from "../lib/languages";
-import { useVaultStore } from "../lib/store";
+import { editorDraft, useVaultStore } from "../lib/store";
 import { parsePlaceholders } from "../lib/template";
 import { toast } from "../lib/toast";
 import type { Snippet } from "../lib/types";
@@ -137,27 +137,27 @@ export default function SnippetDetail() {
   // Template placeholders in the live (possibly unsaved) code
   const placeholderCount = useMemo(() => (form ? parsePlaceholders(form.code).length : 0), [form?.code]);
 
-  // Fill-template dialog gets the editor's current text, not the last save
-  const openFill = useCallback(() => {
-    if (!snippet || !form || placeholderCount === 0) return;
+  // Publish live text so Ctrl+E / the palette fill from it, not the last save
+  useEffect(() => {
+    editorDraft.current = snippet && form ? { id: snippet.id, title: form.title, code: form.code } : null;
+  }, [snippet?.id, form?.title, form?.code]);
+  useEffect(() => () => { editorDraft.current = null; }, []);
+
+  const openFill = () => {
+    if (!snippet || !form) return;
     openFillTemplate({ id: snippet.id, title: form.title, code: form.code });
-  }, [snippet, form, placeholderCount, openFillTemplate]);
+  };
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (!(e.ctrlKey || e.metaKey)) return;
-      const key = e.key.toLowerCase();
-      if (key === "s") {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
         e.preventDefault();
         saveNow();
-      } else if (key === "e" && !e.shiftKey && !e.altKey && placeholderCount > 0) {
-        e.preventDefault();
-        openFill();
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [saveNow, openFill, placeholderCount]);
+  }, [saveNow]);
 
   const handleChange = (field: keyof FormState, value: string) => {
     setForm((prev) => prev ? { ...prev, [field]: value } : prev);

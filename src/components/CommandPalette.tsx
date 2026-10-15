@@ -31,6 +31,8 @@ export default function CommandPalette() {
   if (!paletteOpen) return null;
 
   const close = () => setPaletteOpen(false);
+  // Live editor text when available, so unsaved placeholder edits count
+  const fillTarget = useVaultStore.getState().selectedFillTarget();
 
   // Wrap an action so every command closes the palette afterwards
   const run = (fn: () => void) => () => {
@@ -95,12 +97,13 @@ export default function CommandPalette() {
                   <PaletteItem value={`copy code ${selected.title}`} onSelect={copySelected}>
                     ⧉ Copy current snippet code
                   </PaletteItem>
-                  {parsePlaceholders(selected.code).length > 0 && (
+                  {fillTarget && parsePlaceholders(fillTarget.code).length > 0 && (
                     <PaletteItem
                       value={`fill template placeholders variables copy ${selected.title}`}
-                      onSelect={run(() => openFillTemplate({ id: selected.id, title: selected.title, code: selected.code }))}
+                      onSelect={run(() => openFillTemplate(fillTarget))}
                     >
                       ⧉ Fill template &amp; copy
+                      <Shortcut keys="Ctrl+E" />
                     </PaletteItem>
                   )}
                   <PaletteItem value="toggle notes" onSelect={run(toggleNotes)}>
