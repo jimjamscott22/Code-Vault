@@ -1,4 +1,4 @@
-import CodeMirror from "@uiw/react-codemirror";
+import CodeMirror, { Decoration, EditorView, MatchDecorator, ViewPlugin, type DecorationSet, type ViewUpdate } from "@uiw/react-codemirror";
 import { css } from "@codemirror/lang-css";
 import { html } from "@codemirror/lang-html";
 import { javascript } from "@codemirror/lang-javascript";
@@ -10,6 +10,7 @@ import { yaml } from "@codemirror/lang-yaml";
 import type { Extension } from "@codemirror/state";
 import { useSettingsStore } from "../lib/settings";
 import { darkEditorTheme, lightEditorTheme } from "../lib/editorTheme";
+import { PLACEHOLDER_SOURCE } from "../lib/template";
 
 const LANG_MAP: Record<string, () => Extension> = {
   bash:       () => [],
@@ -26,6 +27,38 @@ const LANG_MAP: Record<string, () => Extension> = {
   typescript: () => javascript({ typescript: true }),
   yaml:       () => yaml(),
 };
+
+// Tint `{{name}}` / `{{name:default}}` template placeholders (see lib/template.ts)
+// on top of whatever language highlighting is active.
+const placeholderMatcher = new MatchDecorator({
+  regexp: new RegExp(PLACEHOLDER_SOURCE, "g"),
+  decoration: Decoration.mark({ class: "cm-template-var" }),
+});
+
+const templatePlaceholders: Extension = [
+  ViewPlugin.fromClass(
+    class {
+      decorations: DecorationSet;
+      constructor(view: EditorView) {
+        this.decorations = placeholderMatcher.createDeco(view);
+      }
+      update(update: ViewUpdate) {
+        this.decorations = placeholderMatcher.updateDeco(update, this.decorations);
+      }
+    },
+    { decorations: (v) => v.decorations },
+  ),
+  EditorView.baseTheme({
+    ".cm-template-var, .cm-template-var *": {
+      color: "#34d399 !important",
+      backgroundColor: "rgba(16, 185, 129, 0.14)",
+      borderRadius: "3px",
+    },
+    "&light .cm-template-var, &light .cm-template-var *": {
+      color: "#047857 !important",
+    },
+  }),
+];
 
 interface Props {
   value: string;
@@ -46,7 +79,10 @@ export default function CodeEditor({
 }: Props) {
   const theme = useSettingsStore((s) => s.theme);
   const langExt = (LANG_MAP[language] ?? (() => []))();
-  const extensions: Extension[] = Array.isArray(langExt) ? langExt : [langExt];
+  const extensions: Extension[] = [
+    ...(Array.isArray(langExt) ? langExt : [langExt]),
+    templatePlaceholders,
+  ];
 
   return (
     <CodeMirror

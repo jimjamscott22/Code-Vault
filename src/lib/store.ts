@@ -8,6 +8,17 @@ import type { Folder, Snippet, SnippetPatch, TagCategory } from "./types";
 export const UNFILED = "unfiled" as const;
 export type FolderFilter = number | typeof UNFILED | null;
 
+export interface FillTemplateTarget {
+  id: number;
+  title: string;
+  code: string;
+}
+
+// The detail editor's live (possibly not yet autosaved) title/code. A plain
+// mutable ref rather than store state so keystrokes don't re-render every
+// subscriber; read on demand by `selectedFillTarget()`.
+export const editorDraft: { current: FillTemplateTarget | null } = { current: null };
+
 interface VaultState {
   snippets: Snippet[];
   folders: Folder[];
@@ -26,6 +37,9 @@ interface VaultState {
   paletteOpen: boolean;
   notesVisible: boolean;
   settingsOpen: boolean;
+  // Snippet being filled in the template dialog. Carries the code itself so
+  // the editor can pass unsaved (still-debouncing) edits.
+  fillTemplate: FillTemplateTarget | null;
 
   // lifecycle
   loadSnippets: () => Promise<void>;
@@ -44,6 +58,7 @@ interface VaultState {
   togglePalette: () => void;
   toggleNotes: () => void;
   setSettingsOpen: (open: boolean) => void;
+  openFillTemplate: (target: FillTemplateTarget | null) => void;
 
   // CRUD
   createSnippet: () => Promise<void>;
@@ -64,6 +79,8 @@ interface VaultState {
   // computed
   filteredSnippets: () => Snippet[];
   selectedSnippet: () => Snippet | null;
+  // Selected snippet as a fill-template target, preferring unsaved editor text
+  selectedFillTarget: () => FillTemplateTarget | null;
   allTags: () => string[];
   groupedSnippets: () => { category: TagCategory | null; snippets: Snippet[] }[];
 }
@@ -83,6 +100,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   paletteOpen: false,
   notesVisible: true,
   settingsOpen: false,
+  fillTemplate: null,
 
   loadSnippets: async () => {
     set({ isLoading: true });
@@ -131,6 +149,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
 
   setPaletteOpen: (open) => set({ paletteOpen: open }),
   togglePalette: () => set((s) => ({ paletteOpen: !s.paletteOpen })),
+  openFillTemplate: (target) => set({ fillTemplate: target }),
   toggleNotes: () => set((s) => ({ notesVisible: !s.notesVisible })),
   setSettingsOpen: (open) => set({ settingsOpen: open }),
 
@@ -344,6 +363,14 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   selectedSnippet: () => {
     const { snippets, selectedId } = get();
     return snippets.find((s) => s.id === selectedId) ?? null;
+  },
+
+  selectedFillTarget: () => {
+    const snippet = get().selectedSnippet();
+    if (!snippet) return null;
+    const draft = editorDraft.current;
+    if (draft && draft.id === snippet.id) return draft;
+    return { id: snippet.id, title: snippet.title, code: snippet.code };
   },
 
   allTags: () => {

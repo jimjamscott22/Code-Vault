@@ -4,6 +4,9 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+pub mod template;
+pub use template::{parse_placeholders, render_template, Placeholder};
+
 // ---------------------------------------------------------------------------
 // Data types
 // ---------------------------------------------------------------------------
