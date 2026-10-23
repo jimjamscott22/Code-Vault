@@ -32,6 +32,9 @@ interface VaultState {
   activeFolder: FolderFilter;
   isLoading: boolean;
   deleteConfirmId: number | null;
+  // Card view: whether the snippet detail pane is open beside (or, on narrow
+  // windows, instead of) the grid. Independent of the saved view mode.
+  cardDetailOpen: boolean;
 
   // UI state
   paletteOpen: boolean;
@@ -52,6 +55,9 @@ interface VaultState {
   setActiveTag: (tag: string | null) => void;
   setActiveLanguage: (lang: string | null) => void;
   setActiveFolder: (folder: FolderFilter) => void;
+  clearFilters: () => void;
+  openCardDetail: (id: number) => void;
+  closeCardDetail: () => void;
 
   // UI toggles
   setPaletteOpen: (open: boolean) => void;
@@ -97,6 +103,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   activeFolder: null,
   isLoading: false,
   deleteConfirmId: null,
+  cardDetailOpen: false,
   paletteOpen: false,
   notesVisible: true,
   settingsOpen: false,
@@ -146,6 +153,10 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   setActiveTag: (tag) => set({ activeTag: tag }),
   setActiveLanguage: (lang) => set({ activeLanguage: lang }),
   setActiveFolder: (folder) => set({ activeFolder: folder }),
+  clearFilters: () =>
+    set({ searchQuery: "", activeTag: null, activeLanguage: null, activeFolder: null }),
+  openCardDetail: (id) => set({ selectedId: id, cardDetailOpen: true }),
+  closeCardDetail: () => set({ cardDetailOpen: false }),
 
   setPaletteOpen: (open) => set({ paletteOpen: open }),
   togglePalette: () => set((s) => ({ paletteOpen: !s.paletteOpen })),
@@ -166,7 +177,12 @@ export const useVaultStore = create<VaultState>((set, get) => ({
         tags: [],
         folder_id: typeof activeFolder === "number" ? activeFolder : null,
       });
-      set((s) => ({ snippets: [snippet, ...s.snippets], selectedId: snippet.id }));
+      set((s) => ({
+        snippets: [snippet, ...s.snippets],
+        selectedId: snippet.id,
+        // In card view a new snippet opens straight into the detail pane
+        cardDetailOpen: useSettingsStore.getState().viewMode === "cards" || s.cardDetailOpen,
+      }));
     } catch (err) {
       console.error("createSnippet:", err);
       toast.error(`Failed to create snippet: ${err}`);
@@ -222,7 +238,12 @@ export const useVaultStore = create<VaultState>((set, get) => ({
         const snippets = s.snippets.filter((sn) => sn.id !== id);
         const selectedId =
           s.selectedId === id ? (snippets[0]?.id ?? null) : s.selectedId;
-        return { snippets, selectedId, deleteConfirmId: null };
+        return {
+          snippets,
+          selectedId,
+          deleteConfirmId: null,
+          cardDetailOpen: s.selectedId === id ? false : s.cardDetailOpen,
+        };
       });
       toast.success("Snippet deleted");
     } catch (err) {
@@ -348,6 +369,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
       if (
         q &&
         !s.title.toLowerCase().includes(q) &&
+        !s.description.toLowerCase().includes(q) &&
         !s.code.toLowerCase().includes(q) &&
         !s.tags.some((t) => t.includes(q))
       )
