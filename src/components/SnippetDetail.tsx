@@ -90,14 +90,84 @@ export default function SnippetDetail() {
   const snippetIdRef = useRef<number | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Reinitialise local form whenever the selected snippet changes
+  // Latest form/dirty flag for the flush below, which runs from effects whose
+  // closures would otherwise see stale values.
+  const pendingRef = useRef({ form, isDirty });
+  pendingRef.current = { form, isDirty };
+
+  // Persist an edit still waiting on the autosave debounce. Needed when the
+  // editor goes away (card detail pane closed) or switches snippets, where the
+  // debounce cleanup would otherwise drop the last half-second of typing.
+  const flushPending = () => {
+    const { form: pending, isDirty: dirty } = pendingRef.current;
+    const id = snippetIdRef.current;
+    if (!dirty || !pending || id === null) return;
+    pendingRef.current = { form: pending, isDirty: false };
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+    // The snippet may have been deleted out from under the editor
+    if (!useVaultStore.getState().snippets.some((s) => s.id === id)) return;
+    const patch = {
+      title: pending.title,
+      description: pending.description,
+      language: pending.language,
+      code: pending.code,
+      notes: pending.notes,
+    };
+    // Optimistically update the store so a replacement editor mounting in the
+    // same commit (e.g. switching from the card detail pane to List view)
+    // initializes from the flushed draft instead of stale store data.
+    useVaultStore.setState((s) => ({
+      snippets: s.snippets.map((sn) => (sn.id === id ? { ...sn, ...patch } : sn)),
+    }));
+    updateSnippet(id, patch);
+  };
+  useEffect(() => () => flushPending(), []);
+
+  // Reinitialise local form whenever the selected snippet changes, or rehydrate
+  // the current snippet when a save completes against a pristine form.
   useEffect(() => {
-    if (!snippet) { setForm(null); return; }
-    if (snippet.id !== snippetIdRef.current) {
-      snippetIdRef.current = snippet.id;
-      setForm(snippetToForm(snippet));
+    if (!snippet) {
+      flushPending();
+      snippetIdRef.current = null;
+      setForm(null);
       setIsDirty(false);
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      return;
+    }
+    if (snippet.id !== snippetIdRef.current) {
+      flushPending();
+      snippetIdRef.current = snippet.id;
+      const latest =
+        useVaultStore.getState().snippets.find((s) => s.id === snippet.id) ?? snippet;
+      setForm(snippetToForm(latest));
+      setIsDirty(false);
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+    } else if (!pendingRef.current.isDirty) {
+      setForm((prev) => {
+        if (!prev) return snippetToForm(snippet);
+        if (
+          prev.title === snippet.title &&
+          prev.description === snippet.description &&
+          prev.language === snippet.language &&
+          prev.code === snippet.code &&
+          prev.notes === snippet.notes
+        ) {
+          return prev;
+        }
+        return {
+          ...prev,
+          title: snippet.title,
+          description: snippet.description,
+          language: snippet.language,
+          code: snippet.code,
+          notes: snippet.notes,
+        };
+      });
     }
   }, [snippet]);
 
@@ -106,6 +176,8 @@ export default function SnippetDetail() {
     if (!isDirty || !snippet || !form) return;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
+      saveTimerRef.current = null;
+      pendingRef.current = { form, isDirty: false };
       updateSnippet(snippet.id, {
         title: form.title,
         description: form.description,
@@ -122,7 +194,11 @@ export default function SnippetDetail() {
   // Immediate save (Ctrl+S) — flush the pending debounce and persist now
   const saveNow = useCallback(() => {
     if (!snippet || !form) return;
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+    pendingRef.current = { form, isDirty: false };
     updateSnippet(snippet.id, {
       title: form.title,
       description: form.description,

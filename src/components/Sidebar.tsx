@@ -596,9 +596,11 @@ export default function Sidebar() {
         </span>
       </div>
 
-      {/* Snippet list — takes remaining height */}
+      {/* Snippet list — takes remaining height. Card view lists the snippets in
+          its own grid, so the duplicate list is hidden there; the (empty) region
+          stays so the section resize handles keep their bounds. */}
       <div ref={snippetsRef} className="flex-1 min-h-24">
-        <SnippetList />
+        {viewMode !== "cards" && <SnippetList />}
       </div>
     </div>
   );

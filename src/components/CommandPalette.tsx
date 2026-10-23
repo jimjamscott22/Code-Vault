@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Command } from "cmdk";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
+import { useSettingsStore } from "../lib/settings";
 import { useVaultStore } from "../lib/store";
 import { parsePlaceholders } from "../lib/template";
 import { toast } from "../lib/toast";
@@ -16,6 +17,7 @@ export default function CommandPalette() {
     toggleFavorite,
     confirmDelete,
     selectSnippet,
+    openCardDetail,
     toggleNotes,
     setSettingsOpen,
     openFillTemplate,
@@ -128,7 +130,11 @@ export default function CommandPalette() {
                 <PaletteItem
                   key={s.id}
                   value={`${s.title} ${s.language} ${s.tags.join(" ")}`}
-                  onSelect={run(() => selectSnippet(s.id))}
+                  onSelect={run(() => {
+                    // Card view shows snippets in its detail pane, not by selection alone
+                    if (useSettingsStore.getState().viewMode === "cards") openCardDetail(s.id);
+                    else selectSnippet(s.id);
+                  })}
                 >
                   <span className="flex-1 min-w-0 truncate text-zinc-200">{s.title}</span>
                   <LanguageBadge language={s.language} />

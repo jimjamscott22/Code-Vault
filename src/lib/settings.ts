@@ -16,11 +16,18 @@ export interface TableSort {
   dir: "asc" | "desc";
 }
 
+export type CardGroupBy = "none" | "folder" | "language";
+export const CARD_GROUP_BYS: CardGroupBy[] = ["none", "folder", "language"];
+export type CardSort = "title" | "updated";
+export const CARD_SORTS: CardSort[] = ["title", "updated"];
+
 interface Settings {
   defaultLanguage: string;
   theme: Theme;
   viewMode: ViewMode;
   tableSort: TableSort;
+  cardGroupBy: CardGroupBy;
+  cardSort: CardSort;
 }
 
 const DEFAULTS: Settings = {
@@ -28,6 +35,8 @@ const DEFAULTS: Settings = {
   theme: "dark",
   viewMode: "list",
   tableSort: { key: "updated", dir: "desc" },
+  cardGroupBy: "none",
+  cardSort: "title",
 };
 
 function isTableSort(value: unknown): value is TableSort {
@@ -47,6 +56,8 @@ function load(): Settings {
     const merged: Settings = { ...DEFAULTS, ...JSON.parse(raw) };
     if (!VIEW_MODES.includes(merged.viewMode)) merged.viewMode = DEFAULTS.viewMode;
     if (!isTableSort(merged.tableSort)) merged.tableSort = DEFAULTS.tableSort;
+    if (!CARD_GROUP_BYS.includes(merged.cardGroupBy)) merged.cardGroupBy = DEFAULTS.cardGroupBy;
+    if (!CARD_SORTS.includes(merged.cardSort)) merged.cardSort = DEFAULTS.cardSort;
     return merged;
   } catch {
     return DEFAULTS;
@@ -67,6 +78,8 @@ interface SettingsState extends Settings {
   setViewMode: (mode: ViewMode) => void;
   cycleViewMode: () => void;
   setTableSort: (sort: TableSort) => void;
+  setCardGroupBy: (groupBy: CardGroupBy) => void;
+  setCardSort: (sort: CardSort) => void;
 }
 
 const initial = load();
@@ -95,6 +108,14 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     set({ tableSort });
     persist(get());
   },
+  setCardGroupBy: (cardGroupBy) => {
+    set({ cardGroupBy });
+    persist(get());
+  },
+  setCardSort: (cardSort) => {
+    set({ cardSort });
+    persist(get());
+  },
 }));
 
 function persist(state: Settings) {
@@ -106,6 +127,8 @@ function persist(state: Settings) {
         theme: state.theme,
         viewMode: state.viewMode,
         tableSort: state.tableSort,
+        cardGroupBy: state.cardGroupBy,
+        cardSort: state.cardSort,
       }),
     );
   } catch {
