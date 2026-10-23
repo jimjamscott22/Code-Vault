@@ -10,6 +10,32 @@
 | Making the label stand out | Plain title · language-colored title + accent stripe | **Large, bold, language-colored label** plus a colored stripe along the top of the card. Colors come from the existing `languageColors.ts` so nothing new has to be kept in sync. |
 | Persist the chosen view? | Session only · localStorage | **localStorage** via `settings.ts`, because it's a UI preference and not vault data. |
 
+## Current behavior
+
+This supersedes the original spec below wherever they differ (see `docs/10-20-2026-snippet-display-and-organization-plan.md` for the rationale).
+
+**Cards** share one structure, with fixed-height blocks so code previews line up across a row:
+1. Title (2 lines, language-colored) with a star when favorited.
+2. Description (2 lines), or a muted "No description".
+3. Code preview: the first 6 lines (of at most 400 chars), indentation preserved, or a muted "Empty snippet".
+4. Language badge, folder name ("Unfiled" when none), up to 3 tags, then a `+N` count.
+
+**Toolbar** (top of the card view): result count (`N of M` while filtering), **Group by** None / Folder / Language, **Sort** Title (A–Z) / Recently updated, and **Clear filters**. Grouping and sorting persist in `settings.ts` (`cardGroupBy`, `cardSort`; defaults: none, title). Search, tag, language and folder filters stay in the sidebar, which hides its duplicate snippet list in card view. Search also matches descriptions.
+
+**Grouping** is derived from the filtered list by `src/lib/cardGroups.ts`: filter, then sort (ties broken by id), then bucket. Each snippet appears once; groups are alphabetical with "Unfiled" last; empty groups are omitted. Tag categories are no longer used in card view (list view still groups by them).
+
+**Opening a snippet** keeps card view active:
+- Window ≥ 1280px: the editor opens in a pane beside the grid (initially 480px). Drag the divider, or focus it and use ←/→ (Shift for bigger steps, Home/End for the limits). The grid keeps at least 480px and the editor at least 360px.
+- Narrower windows: the editor replaces the grid, with a **Back to snippets** button.
+- Closing the pane restores filters, grouping, sorting, grid scroll position and focus on the card that was opened. The opened snippet stays in the pane even if edits make it stop matching the filters; deleting it closes the pane. Leaving card view also closes it.
+- The pane is the regular editor (autosave, fill & copy, copy, favorite, delete). Pending edits are flushed when the pane closes or another card is opened.
+
+State: the pane's open flag lives in `store.ts` (`cardDetailOpen`), separate from the saved `viewMode`; the pane width is component state.
+
+## Original spec (initial version)
+
+> Parts of this are superseded by "Current behavior" above: cards now show more than title and code, and clicking a card no longer switches to list view.
+
 ## Spec
 
 - A new **card view** renders every snippet from `filteredSnippets()` in a responsive grid (`repeat(auto-fill, minmax(220px, 1fr))`).

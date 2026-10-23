@@ -1,6 +1,6 @@
 # Clearer snippet cards and flexible organization
 
-Status: Planned. Implementation deferred at the user's request.
+Status: Implemented (see `docs/CARD_VIEW_SPEC.md` for the resulting behavior).
 
 ## Summary
 

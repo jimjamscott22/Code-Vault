@@ -90,10 +90,35 @@ export default function SnippetDetail() {
   const snippetIdRef = useRef<number | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Latest form/dirty flag for the flush below, which runs from effects whose
+  // closures would otherwise see stale values.
+  const pendingRef = useRef({ form, isDirty });
+  pendingRef.current = { form, isDirty };
+
+  // Persist an edit still waiting on the autosave debounce. Needed when the
+  // editor goes away (card detail pane closed) or switches snippets, where the
+  // debounce cleanup would otherwise drop the last half-second of typing.
+  const flushPending = () => {
+    const { form: pending, isDirty: dirty } = pendingRef.current;
+    const id = snippetIdRef.current;
+    if (!dirty || !pending || id === null) return;
+    // The snippet may have been deleted out from under the editor
+    if (!useVaultStore.getState().snippets.some((s) => s.id === id)) return;
+    updateSnippet(id, {
+      title: pending.title,
+      description: pending.description,
+      language: pending.language,
+      code: pending.code,
+      notes: pending.notes,
+    });
+  };
+  useEffect(() => () => flushPending(), []);
+
   // Reinitialise local form whenever the selected snippet changes
   useEffect(() => {
     if (!snippet) { setForm(null); return; }
     if (snippet.id !== snippetIdRef.current) {
+      flushPending();
       snippetIdRef.current = snippet.id;
       setForm(snippetToForm(snippet));
       setIsDirty(false);
