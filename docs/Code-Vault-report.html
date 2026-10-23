@@ -1,0 +1,86 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Code-Vault review</title><style>
+:root{--bg:#f7f7f5;--card:#fff;--ink:#1d1d1f;--mut:#5f6368;--acc:#2f6fed;--red:#c0392b;--amb:#b7791f;--grn:#2e7d32}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 system-ui,-apple-system,Segoe UI,sans-serif}
+main{max-width:860px;margin:0 auto;padding:40px 22px 80px}
+h1{font-size:2rem;margin:0 0 4px}h2{margin-top:40px;border-bottom:2px solid #e3e3e0;padding-bottom:6px}
+.sub{color:var(--mut)}.card{background:var(--card);border:1px solid #e6e6e3;border-radius:12px;padding:16px 20px;margin:14px 0}
+code{background:#eef0f4;padding:1px 6px;border-radius:5px;font-size:.88em}
+.tag{display:inline-block;font-size:.75rem;font-weight:600;padding:2px 8px;border-radius:99px;color:#fff;margin-right:6px}
+.hi{background:var(--red)}.md{background:var(--amb)}.lo{background:var(--grn)}
+ol.start li{margin:8px 0}table{border-collapse:collapse;width:100%}td{padding:6px 8px;border-top:1px solid #eee;vertical-align:top}
+</style></head><body><main>
+<h1>Code-Vault review</h1>
+<p class="sub"><a href="https://github.com/jimjamscott22/Code-Vault">jimjamscott22/Code-Vault</a> · reviewed read-only on Oct 22, 2026, at the latest commit on the default branch (Oct 20)</p>
+
+<div class="card"><b>TL;DR:</b> This is a well-built local-first snippet manager. The layering is clean, the shared Rust core has real unit tests, and <code>CLAUDE.md</code> is excellent onboarding. The main risks are data integrity: imports and migrations don't use transactions, and the backup copies a WAL database file directly. There's also a wide-open webview: CSP is off, and the IPC commands accept any file path.</div>
+
+<h2>What it is</h2>
+<p>CodeVault is a desktop snippet manager. It stores code, shell one-liners and configs with tags, folders, tag categories, markdown notes and <code>{{placeholder}}</code> templates, all in a local SQLite file with no accounts and no cloud.</p>
+<table>
+<tr><td><b>Frontend</b></td><td>React 19, TypeScript 5.8, Vite 7, Tailwind 3, CodeMirror 6 (<code>@uiw/react-codemirror</code>), Zustand 5, cmdk (<code>package.json</code>)</td></tr>
+<tr><td><b>Backend</b></td><td>Tauri 2 and Rust with <code>rusqlite</code>. The logic lives in a shared crate, <code>crates/codevault-core</code>. There's also a standalone CLI, <code>crates/codevault-cli</code>.</td></tr>
+<tr><td><b>Data</b></td><td>SQLite in WAL mode with foreign keys on (<code>codevault-core/src/lib.rs:146</code>), versioned migrations (<code>:157-228</code>) and daily rotating backups (<code>:239-264</code>)</td></tr>
+</table>
+
+<h2>Structure: what's good</h2>
+<ul>
+<li>The layering is clean: core crate → thin <code>#[tauri::command]</code> wrappers (<code>src-tauri/src/commands.rs</code>) → one typed IPC layer (<code>src/lib/api.ts</code>) → Zustand store. Because the CLI and GUI share one data layer, they can't drift.</li>
+<li>Every query is parameterized. I found no SQL built with string formatting from user input. <code>SNIPPET_SELECT</code> is just a constant spliced in.</li>
+<li>The Rust unit tests cover import strategies, markdown splitting, the export round-trip, folders and date math (<code>lib.rs:910+</code>). <code>template.rs</code> also has its own tests, per <code>CLAUDE.md</code>.</li>
+<li>Editor saves are debounced, with a Ctrl+S flush (<code>src/components/SnippetDetail.tsx:93-137</code>).</li>
+<li><code>CLAUDE.md</code> is one of the best repo guides I've seen. It documents the four edits needed per command, the IPC casing rules and the dual-filter gotcha.</li>
+</ul>
+
+<h2>Security</h2>
+<div class="card"><span class="tag hi">High</span><b>CSP is disabled.</b> <code>src-tauri/tauri.conf.json</code> has <code>"security": {"csp": null}</code>. In Tauri, any script injection in the webview can call every registered command. That matters because of the next item.</div>
+<div class="card"><span class="tag hi">High</span><b>IPC commands take arbitrary filesystem paths.</b> <code>export_vault</code> runs <code>std::fs::write(&path, json)</code> on any path the frontend passes (<code>commands.rs</code>, export_vault). <code>import_vault</code> and <code>import_markdown</code> read any path, and <code>import_markdown_dir</code> lists any directory. The dialog plugin chooses those paths today, but the Rust side never checks them. If you pair this with a missing CSP, an XSS bug (say, in future markdown-notes rendering) turns into "overwrite any file the user can write". The fix is either to do the dialog in Rust and never accept a raw path, or to at least enforce an extension and reject paths outside a user-picked scope.</div>
+<div class="card"><span class="tag md">Med</span><b><code>opener:allow-open-path</code></b> is granted in <code>src-tauri/capabilities/default.json</code> with no path scope. I couldn't tell if that's needed. If it's only used for "open data folder", scope it to <code>$APPDATA</code>.</div>
+
+<h2>Data integrity and performance</h2>
+<div class="card"><span class="tag hi">High</span><b>Migrations aren't atomic.</b> <code>migrate()</code> runs each migration with <code>execute_batch</code> and then writes the version as a separate statement (<code>lib.rs:216-224</code>), with no transaction around them. Migration v2 is a <code>CREATE TABLE</code> plus an <code>ALTER TABLE ADD COLUMN</code> (<code>:196-202</code>). If it dies halfway, the next launch retries it and fails on "duplicate column". The vault is then stuck until someone fixes it by hand. Also, <code>.unwrap_or(0)</code> on the version read (<code>:168</code>) quietly treats any read error as "fresh DB".</div>
+<div class="card"><span class="tag hi">High</span><b>The backup copies a live WAL database with <code>fs::copy</code></b> (<code>lib.rs:248</code>). With <code>journal_mode=WAL</code>, recent commits can still be sitting in <code>vault.db-wal</code>, so the backup can be stale or inconsistent. Use <code>VACUUM INTO</code> or rusqlite's <code>backup</code> API instead.</div>
+<div class="card"><span class="tag md">Med</span><b>Imports aren't wrapped in a transaction.</b> <code>import_vault_json</code> loops over snippets and stops at the first error with <code>?</code> (<code>lib.rs:634-636</code>). You end up with half an import and no report of what landed. <code>import_markdown_dir</code> does the same thing per file (<code>commands.rs</code>). <code>create_snippet</code> and <code>insert_full</code> also do the insert and the tag writes as separate statements (<code>:300-319</code>, <code>:677-696</code>). One transaction per import would fix correctness, and with SQLite it's also a big speedup on large imports.</div>
+<div class="card"><span class="tag md">Med</span><b>Unknown import strategies quietly mean "rename".</b> <code>strategy: &str</code> matches <code>"skip"</code> and <code>"overwrite"</code>, and anything else falls through to rename (<code>lib.rs:658-672</code>). A serde enum would turn typos into errors.</div>
+<div class="card"><span class="tag lo">Low</span><b>Lookups that will get slow:</b> import conflict checks and <code>unique_title</code> query <code>snippets.title</code>, which has no index (the only index is <code>idx_snippets_folder_id</code>). <code>set_snippet_tags</code> runs 3 statements per tag. Search uses <code>LIKE '%q%'</code> on the code and notes columns, which is fine for hundreds of snippets. Once you reach thousands, look at SQLite FTS5.</div>
+
+<h2>Code smells and bugs</h2>
+<ul>
+<li><b>The two search paths disagree, which <code>CLAUDE.md</code> says they shouldn't.</b> The client-side <code>filteredSnippets</code> checks title, code and tags (<code>src/lib/store.ts:352-354</code>). SQL <code>search_snippets</code> also checks <b>notes</b> (<code>lib.rs:540</code>). The client side also runs <code>t.includes(q)</code> on tags <i>without</i> lowercasing them, so if a tag has a capital letter, a search on the lowercased query won't match it.</li>
+<li>Each of the 25 commands repeats <code>state.0.lock().map_err(|_| "db lock poisoned")?</code> (<code>commands.rs</code>). A small <code>with_conn(|c| ...)</code> helper would remove about 50 lines and give you one place to add logging.</li>
+<li>Errors cross IPC as plain <code>String</code>s (<code>type CmdResult&lt;T&gt; = Result&lt;T, String&gt;</code>), so the UI can't tell "not found" from "disk full".</li>
+<li>Commands are sync and hold the global <code>Mutex</code> across file I/O. For example, <code>import_markdown_dir</code> reads every file while holding the lock. Big imports will freeze every other UI call.</li>
+<li>Leftover scaffolding: <code>src/assets/react.svg</code>, <code>public/vite.svg</code>, <code>public/tauri.svg</code> and a 7.8 KB <code>src/lib/mockData.ts</code>. Check whether any of these are still imported before you delete them.</li>
+<li>There are two Cargo.lock files: a root <code>Cargo.lock</code> and <code>src-tauri/Cargo.lock</code>. With a root workspace, the inner one is probably stale.</li>
+</ul>
+
+<h2>Tests, CI and docs</h2>
+<ul>
+<li><b>No CI.</b> The tree has no <code>.github/</code> directory, so nothing runs <code>cargo test</code>, <code>clippy</code> or <code>tsc</code> on a PR, and the good Rust tests only help if you remember to run them.</li>
+<li><b>No frontend tests or linter.</b> <code>CLAUDE.md</code> says so outright. The best candidates for first tests are <code>filteredSnippets</code>/<code>groupedSnippets</code> in <code>store.ts</code> and <code>src/lib/template.ts</code>. The TS template parser has to stay in sync with <code>template.rs</code>, so share test vectors between the two (for example a JSON fixture both suites read).</li>
+<li>The docs are strong: README (12 KB), SPEC, IMPLEMENTATION_PLAN, PERFORMANCE_NOTES and the plans under <code>docs/superpowers/</code>. They don't have a short security or threat-model note.</li>
+</ul>
+
+<h2>Improvements worth doing</h2>
+<h3>Reliability</h3>
+<div class="card"><b>1. Transactional migrations, imports and backups.</b> Wrap each migration and its version write in a single <code>conn.transaction()</code>. Do the same for each import call. Switch the backup to <code>VACUUM INTO</code>. This is a small diff, and it protects the one thing users can't get back: their snippets.</div>
+<h3>Security</h3>
+<div class="card"><b>2. Turn on a CSP and stop trusting raw paths.</b> Set a strict CSP (<code>default-src 'self'; style-src 'self' 'unsafe-inline'</code>; CodeMirror needs inline styles). Move the save and open dialogs into Rust so <code>export_vault</code> and <code>import_*</code> never accept a path from JS. Scope <code>opener:allow-open-path</code>.</div>
+<h3>DevEx</h3>
+<div class="card"><b>3. Add a GitHub Actions workflow.</b> Run <code>cargo test -p codevault-core</code> + <code>cargo clippy -- -D warnings</code> + <code>pnpm build</code> on every PR. Add Vitest for <code>store.ts</code> filtering and <code>template.ts</code>, with shared template fixtures.</div>
+<h3>Performance and UX</h3>
+<div class="card"><b>4. FTS5 search with one search path.</b> Add an FTS5 virtual table over title, description, code, notes and tags, and route the search box through it. That fixes the client/SQL mismatch, adds ranking and highlighting, and scales well past what in-memory filtering can handle.</div>
+<div class="card"><b>5. Make import results visible and undoable.</b> Return per-item results, including which files failed and why, and show them in a toast or modal. Take an automatic backup right before every import so "undo" is just a restore.</div>
+
+<h2>Start here</h2>
+<ol class="start">
+<li>Wrap <code>migrate()</code> steps and their version insert in a transaction, and stop swallowing the version-read error (<code>lib.rs:157-228</code>).</li>
+<li>Replace the <code>fs::copy</code> backup with <code>VACUUM INTO</code> (<code>lib.rs:248</code>).</li>
+<li>Set a real CSP in <code>tauri.conf.json</code> and validate or own file paths in <code>export_vault</code>/<code>import_*</code>.</li>
+<li>Wrap each import in one transaction and turn <code>strategy</code> into an enum.</li>
+<li>Add CI (cargo test + clippy + pnpm build).</li>
+<li>Line up client and SQL search: add notes, lowercase tags, and later move to FTS5.</li>
+<li>Clean up the leftover assets and the duplicate <code>Cargo.lock</code>, and add a <code>with_conn</code> helper.</li>
+</ol>
+<p class="sub">Everything above was verified by reading files through the GitHub API. I didn't build or run the app, and line numbers refer to the default branch on Oct 22, 2026.</p>
+</main></body></html>
