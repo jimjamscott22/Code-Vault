@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { api } from "./api";
 import { toast } from "./toast";
 import { useSettingsStore } from "./settings";
+import { groupSnippetsByTagCategory } from "./tagCategoryGroups";
 import type { Folder, Snippet, SnippetPatch, TagCategory } from "./types";
 
 /** Sentinel for the "no folder" filter, distinct from `null` (= "all folders"). */
@@ -404,44 +405,6 @@ export const useVaultStore = create<VaultState>((set, get) => ({
 
   groupedSnippets: () => {
     const { tagCategories, tagCategoryByName } = get();
-    const snippets = get().filteredSnippets();
-
-    const buckets = new Map<number | null, Snippet[]>();
-    for (const snippet of snippets) {
-      const categoryIds = new Set<number | null>();
-      for (const tag of snippet.tags) {
-        categoryIds.add(tagCategoryByName[tag] ?? null);
-      }
-      if (categoryIds.size === 0) categoryIds.add(null);
-      for (const categoryId of categoryIds) {
-        const bucket = buckets.get(categoryId);
-        if (bucket) bucket.push(snippet);
-        else buckets.set(categoryId, [snippet]);
-      }
-    }
-
-    const sortBucket = (categoryId: number | null, items: Snippet[]) => {
-      const matchingTags = new Set(
-        Object.entries(tagCategoryByName)
-          .filter(([, id]) => id === categoryId)
-          .map(([tag]) => tag),
-      );
-      const firstMatchingTag = (s: Snippet) =>
-        s.tags.find((t) => matchingTags.has(t)) ?? "";
-      return [...items].sort((a, b) => {
-        const cmp = firstMatchingTag(a).localeCompare(firstMatchingTag(b));
-        return cmp !== 0 ? cmp : a.title.localeCompare(b.title);
-      });
-    };
-
-    const result: { category: TagCategory | null; snippets: Snippet[] }[] = [];
-    for (const category of tagCategories) {
-      const items = buckets.get(category.id);
-      if (items?.length) result.push({ category, snippets: sortBucket(category.id, items) });
-    }
-    const uncategorized = buckets.get(null);
-    if (uncategorized?.length) result.push({ category: null, snippets: sortBucket(null, uncategorized) });
-
-    return result;
+    return groupSnippetsByTagCategory(get().filteredSnippets(), tagCategories, tagCategoryByName, true);
   },
 }));

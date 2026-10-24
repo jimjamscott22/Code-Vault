@@ -1,5 +1,6 @@
 import type { CardGroupBy, CardSort } from "./settings";
-import type { Folder, Snippet } from "./types";
+import { groupSnippetsByTagCategory } from "./tagCategoryGroups";
+import type { Folder, Snippet, TagCategory } from "./types";
 
 export interface CardGroup {
   key: string;
@@ -20,19 +21,32 @@ function byUpdated(a: Snippet, b: Snippet): number {
 }
 
 /**
- * Sort already-filtered snippets, then bucket them by folder or language.
- * Every snippet lands in exactly one group; groups are alphabetical with
- * "Unfiled" last, and empty groups are never produced.
+ * Sort already-filtered snippets, then bucket them by folder, language or tag
+ * category. Folder and language put every snippet in exactly one group
+ * (alphabetical, "Unfiled" last); tag category repeats a snippet in each
+ * category its tags belong to (category order, "Uncategorized" last). Empty
+ * groups are never produced.
  */
 export function groupCardSnippets(
   snippets: Snippet[],
   folders: Folder[],
   groupBy: CardGroupBy,
   sort: CardSort,
+  tagCategories: { categories: TagCategory[]; byName: Record<string, number | null> } = { categories: [], byName: {} },
 ): CardGroup[] {
   const sorted = [...snippets].sort(sort === "title" ? byTitle : byUpdated);
   if (groupBy === "none") {
     return sorted.length ? [{ key: "all", label: null, snippets: sorted }] : [];
+  }
+
+  if (groupBy === "tagCategory") {
+    return groupSnippetsByTagCategory(sorted, tagCategories.categories, tagCategories.byName, false).map(
+      ({ category, snippets: items }) => ({
+        key: category ? `category:${category.id}` : "uncategorized",
+        label: category?.name ?? "Uncategorized",
+        snippets: items,
+      }),
+    );
   }
 
   const folderNames = new Map(folders.map((f) => [f.id, f.name]));

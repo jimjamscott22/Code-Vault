@@ -32,6 +32,7 @@ const GROUP_LABELS: Record<CardGroupBy, string> = {
   none: "None",
   folder: "Folder",
   language: "Language",
+  tagCategory: "Tag category",
 };
 const SORT_LABELS: Record<CardSort, string> = {
   title: "Title (A–Z)",
@@ -255,6 +256,8 @@ function useWindowWidth(): number {
 export default function SnippetCards() {
   const snippets = useVaultStore((s) => s.snippets);
   const folders = useVaultStore((s) => s.folders);
+  const tagCategories = useVaultStore((s) => s.tagCategories);
+  const tagCategoryByName = useVaultStore((s) => s.tagCategoryByName);
   const selectedId = useVaultStore((s) => s.selectedId);
   const cardDetailOpen = useVaultStore((s) => s.cardDetailOpen);
   const searchQuery = useVaultStore((s) => s.searchQuery);
@@ -311,8 +314,8 @@ export default function SnippetCards() {
     [filteredSnippets, snippets, searchQuery, activeTag, activeLanguage, activeFolder],
   );
   const groups = useMemo(
-    () => groupCardSnippets(results, folders, cardGroupBy, cardSort),
-    [results, folders, cardGroupBy, cardSort],
+    () => groupCardSnippets(results, folders, cardGroupBy, cardSort, { categories: tagCategories, byName: tagCategoryByName }),
+    [results, folders, cardGroupBy, cardSort, tagCategories, tagCategoryByName],
   );
   const folderNames = useMemo(() => new Map<number, string>(folders.map((f: Folder) => [f.id, f.name])), [folders]);
 

@@ -16,8 +16,8 @@ export interface TableSort {
   dir: "asc" | "desc";
 }
 
-export type CardGroupBy = "none" | "folder" | "language";
-export const CARD_GROUP_BYS: CardGroupBy[] = ["none", "folder", "language"];
+export type CardGroupBy = "none" | "folder" | "language" | "tagCategory";
+export const CARD_GROUP_BYS: CardGroupBy[] = ["none", "folder", "language", "tagCategory"];
 export type CardSort = "title" | "updated";
 export const CARD_SORTS: CardSort[] = ["title", "updated"];
 
