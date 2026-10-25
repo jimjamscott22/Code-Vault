@@ -68,8 +68,9 @@ language: bash
 tags: package-manager, uv, python, dependencies
 ---
 ```bash
-uv sync                          # install exactly what uv.lock says
-uv sync --frozen                 # fail instead of updating uv.lock (CI)
+uv sync                          # install deps (re-locks first if uv.lock is stale)
+uv sync --locked                 # fail if uv.lock is out of date (CI)
+uv sync --frozen                 # use uv.lock as-is, no up-to-date check
 uv sync --no-dev                 # skip dev dependencies (prod)
 uv lock                          # refresh uv.lock without installing
 uv lock --upgrade                # upgrade everything within constraints
