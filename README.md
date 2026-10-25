@@ -235,6 +235,12 @@ Open **Settings** (gear icon, top-left, or `Ctrl+,`):
 - **Import vault (JSON)** — merges a JSON export; on a title conflict choose *rename*, *skip*, or *overwrite*.
 - **Import Markdown** — creates one or more snippets from a `.md` file. Each `---` front-matter block (`title`, `language`, comma-separated `tags`) starts a new snippet; its body — up to the next front-matter block or EOF — becomes the snippet code (a single fenced ```lang code block is unwrapped automatically). Files with no front-matter import as one snippet with defaulted title/language. Title conflicts follow the same *rename*/*skip*/*overwrite* choice as JSON import.
 
+### Snippet packs
+
+Ready-made Markdown files you can load with **Import Markdown** live in [`docs/snippet-packs/`](docs/snippet-packs/):
+
+- [`package-managers.md`](docs/snippet-packs/package-managers.md) — 27 common **uv**, **npm**, and **winget** commands, tagged `package-manager` plus the tool name.
+
 A dated backup of `vault.db` is taken on each launch (last 7 kept) in the data directory.
 
 ## Data location
