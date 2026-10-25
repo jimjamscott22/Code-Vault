@@ -5,9 +5,6 @@ Import this file in CodeVault with **Import Markdown**. Every snippet is tagged
 `package-manager` plus its tool name (`uv`, `npm`, or `winget`), so you can
 filter by the whole pack or one tool at a time.
 
-> winget snippets use `bash` as the language because CodeVault has no
-> PowerShell language yet; the commands run as-is in PowerShell or cmd.
-
 ---
 
 ---
@@ -317,10 +314,10 @@ npm publish --access public
 
 ---
 title: winget - Search and inspect packages
-language: bash
+language: powershell
 tags: package-manager, winget, windows, powershell
 ---
-```bash
+```powershell
 winget search vscode                  # search by name/keyword
 winget search --id Microsoft.PowerToys
 winget show Microsoft.VisualStudioCode   # details, publisher, installer URL
@@ -331,10 +328,10 @@ winget show --id Git.Git --versions      # every available version
 
 ---
 title: winget - Install packages
-language: bash
+language: powershell
 tags: package-manager, winget, windows, powershell
 ---
-```bash
+```powershell
 # -e = exact ID match, avoids installing the wrong package
 winget install --id Git.Git -e
 winget install --id Microsoft.PowerShell -e
@@ -351,10 +348,10 @@ winget install --id Mozilla.Firefox -e --scope machine
 
 ---
 title: winget - Upgrade installed apps
-language: bash
+language: powershell
 tags: package-manager, winget, windows, powershell, maintenance
 ---
-```bash
+```powershell
 winget upgrade                        # list apps with updates available
 winget upgrade --id Git.Git -e        # upgrade one app
 winget upgrade --all --silent --accept-package-agreements --accept-source-agreements
@@ -365,10 +362,10 @@ winget upgrade --all --include-unknown   # also apps whose version winget can't 
 
 ---
 title: winget - List and uninstall
-language: bash
+language: powershell
 tags: package-manager, winget, windows, powershell
 ---
-```bash
+```powershell
 winget list                       # everything installed (winget or not)
 winget list --name chrome         # filter by name
 winget list --upgrade-available
@@ -379,10 +376,10 @@ winget uninstall --id Google.Chrome -e
 
 ---
 title: winget - Pin a package version
-language: bash
+language: powershell
 tags: package-manager, winget, windows, powershell, maintenance
 ---
-```bash
+```powershell
 # Stop "upgrade --all" from touching a package
 winget pin add --id Microsoft.DotNet.SDK.8 -e
 winget pin add --id Python.Python.3.12 -e --version 3.12.*
@@ -394,10 +391,10 @@ winget pin remove --id Microsoft.DotNet.SDK.8 -e
 
 ---
 title: winget - Export and import an app list
-language: bash
+language: powershell
 tags: package-manager, winget, windows, powershell, backup
 ---
-```bash
+```powershell
 # Back up the list of installed apps to JSON
 winget export -o "$env:USERPROFILE\winget-apps.json" --include-versions
 
@@ -409,10 +406,10 @@ winget import -i "$env:USERPROFILE\winget-apps.json" --accept-package-agreements
 
 ---
 title: winget - Sources and troubleshooting
-language: bash
+language: powershell
 tags: package-manager, winget, windows, powershell, troubleshooting
 ---
-```bash
+```powershell
 winget --info              # version, log location, settings path
 winget source list         # configured sources (winget, msstore)
 winget source update       # refresh package catalogs
@@ -424,10 +421,10 @@ winget settings            # open settings.json in your editor
 
 ---
 title: winget - New PC bootstrap script
-language: bash
+language: powershell
 tags: package-manager, winget, windows, powershell, setup, scripts
 ---
-```bash
+```powershell
 # Save as setup.ps1 and run in an elevated PowerShell window
 $apps = @(
   "Git.Git",

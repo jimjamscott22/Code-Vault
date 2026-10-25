@@ -24,6 +24,8 @@ const LANGUAGE_COLORS: Record<string, LanguageColorSet> = {
   css: { badge: "bg-pink-900 text-pink-300", text: "text-pink-400" },
   markdown: { badge: "bg-zinc-700 text-zinc-400", text: "text-zinc-300" },
   json: { badge: "bg-amber-900 text-amber-300", text: "text-amber-400" },
+  // Indigo rather than PowerShell's brand blue, which typescript already uses.
+  powershell: { badge: "bg-indigo-900 text-indigo-300", text: "text-indigo-400" },
   toml: { badge: "bg-teal-900 text-teal-300", text: "text-teal-400" },
 };
 
