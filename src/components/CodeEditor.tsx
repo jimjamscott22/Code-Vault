@@ -7,6 +7,8 @@ import { python } from "@codemirror/lang-python";
 import { rust } from "@codemirror/lang-rust";
 import { sql } from "@codemirror/lang-sql";
 import { yaml } from "@codemirror/lang-yaml";
+import { StreamLanguage } from "@codemirror/language";
+import { powerShell } from "@codemirror/legacy-modes/mode/powershell";
 import type { Extension } from "@codemirror/state";
 import { useSettingsStore } from "../lib/settings";
 import { darkEditorTheme, lightEditorTheme } from "../lib/editorTheme";
@@ -20,6 +22,7 @@ const LANG_MAP: Record<string, () => Extension> = {
   json:       () => javascript(),
   markdown:   () => markdown(),
   nginx:      () => [],
+  powershell: () => StreamLanguage.define(powerShell),
   python:     () => python(),
   rust:       () => rust(),
   sql:        () => sql(),
