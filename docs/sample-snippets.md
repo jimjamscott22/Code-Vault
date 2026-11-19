@@ -5,6 +5,7 @@ This file contains 31 useful code snippets and scripts ready to import into Code
 ---
 
 ---
+uid: 01a1f623-ac9e-72ca-a831-bc79bc8af850
 title: Docker Cleanup and Prune
 language: bash
 tags: docker, cleanup, system
@@ -26,6 +27,7 @@ docker system prune -a --volumes
 ---
 
 ---
+uid: 01a1f623-ac9f-7213-a7e0-d8619c754562
 title: Find Large Files in Directory
 language: bash
 tags: linux, disk-usage, files
@@ -44,6 +46,7 @@ find . -type f -size +100M
 ---
 
 ---
+uid: 01a1f623-aca0-7176-b23e-84710f4c3896
 title: Backup Directory with Timestamp
 language: bash
 tags: backup, administration, tar
@@ -63,6 +66,7 @@ echo "Backup complete: $BACKUP_DIR/${DIR_TO_BACKUP##*/}_${TIMESTAMP}.tar.gz"
 ---
 
 ---
+uid: 01a1f623-aca1-7234-9706-e7f1eb5778cc
 title: Check Open Ports
 language: bash
 tags: networking, ports, linux
@@ -84,6 +88,7 @@ nc -zv localhost 3000
 ---
 
 ---
+uid: 01a1f623-aca2-7e48-bec2-0243e37a85d5
 title: Git Force Pull (Discard Local)
 language: bash
 tags: git, version-control
@@ -101,6 +106,7 @@ git reset --hard origin/$(git rev-parse --abbrev-ref HEAD)
 ---
 
 ---
+uid: 01a1f623-aca3-77b5-b637-865ab9a68a58
 title: Extract and Convert Media Files
 language: bash
 tags: ffmpeg, media, conversion
@@ -122,6 +128,7 @@ ffmpeg -i input.mp4 -t 5 -vf "fps=10,scale=320:-1:flags=lanczos" output.gif
 ---
 
 ---
+uid: 01a1f623-aca4-70ea-9075-19298b8a2867
 title: Monitor System Resources
 language: bash
 tags: monitoring, system, performance
@@ -135,6 +142,7 @@ watch -n 1 'echo "=== CPU ==="; top -bn1 | head -12; echo "=== Memory ==="; free
 ---
 
 ---
+uid: 01a1f623-aca5-7ce3-b306-bd925a7f8a34
 title: Generate Random Password
 language: bash
 tags: security, password, random
@@ -153,6 +161,7 @@ cat /dev/urandom | tr -dc 'a-zA-Z0-9!@#$%^&*' | fold -w 32 | head -1
 ---
 
 ---
+uid: 01a1f623-aca6-704c-b710-76f474b8befd
 title: Batch Rename Files
 language: bash
 tags: bash, file-operations, rename
@@ -174,6 +183,7 @@ rename 's/\.txt$/.md/' *.txt
 ---
 
 ---
+uid: 01a1f623-aca7-7ae3-85a9-d72508c5b8ee
 title: Search and Replace in Files
 language: bash
 tags: grep, sed, text-processing
@@ -198,6 +208,7 @@ find . -name "*.js" -type f -exec sed -i.bak 's/oldText/newText/g' {} +
 ---
 
 ---
+uid: 01a1f623-aca8-7f31-9add-3832e346df6c
 title: Kill Process by Name
 language: bash
 tags: process, kill, system
@@ -219,6 +230,7 @@ pkill -f "python.*script.py"
 ---
 
 ---
+uid: 01a1f623-aca9-7611-915c-8eb09034fb1a
 title: Simple HTTP Server
 language: bash
 tags: http, server, testing
@@ -243,6 +255,7 @@ node -e "require('http').createServer((req, res) => { res.writeHead(200); res.en
 ---
 
 ---
+uid: 01a1f623-acaa-7bfb-affa-45a914867077
 title: Create Nginx Virtual Host
 language: nginx
 tags: nginx, web-server, config
@@ -272,6 +285,7 @@ server {
 ---
 
 ---
+uid: 01a1f623-acab-7557-9e71-a893df4fc708
 title: TypeScript React Component Template
 language: typescript
 tags: react, typescript, template
@@ -308,6 +322,7 @@ export const MyComponent: React.FC<Props> = ({ title, onClose }) => {
 ---
 
 ---
+uid: 01a1f623-acac-7482-a6d4-bfefa4fa8efb
 title: Docker Compose Database Stack
 language: yaml
 tags: docker, docker-compose, database
@@ -349,6 +364,7 @@ networks:
 ---
 
 ---
+uid: 01a1f623-acad-7a5d-8950-f38b42659772
 title: Cron Job Examples
 language: bash
 tags: cron, scheduling, automation
@@ -383,6 +399,7 @@ crontab -r
 ---
 
 ---
+uid: 01a1f623-acae-7818-9e02-a6bbfb5271b7
 title: Node.js Project Setup (pnpm)
 language: bash
 tags: node, pnpm, setup
@@ -413,6 +430,7 @@ pnpm update
 ---
 
 ---
+uid: 01a1f623-acaf-7b6c-ab77-b85916908b86
 title: package.json Useful Scripts
 language: json
 tags: node, npm, package-json
@@ -441,6 +459,7 @@ tags: node, npm, package-json
 ---
 
 ---
+uid: 01a1f623-acb0-7f3e-8662-aefd6efad86d
 title: Express.js REST API Starter
 language: javascript
 tags: node, express, api
@@ -478,6 +497,7 @@ app.listen(PORT, () => console.log(`Listening on http://localhost:${PORT}`));
 ---
 
 ---
+uid: 01a1f623-acb1-7629-9652-b6dc8b48afbb
 title: Python Virtual Environment Commands
 language: bash
 tags: python, venv, setup
@@ -509,6 +529,7 @@ rm -rf .venv
 ---
 
 ---
+uid: 01a1f623-acb2-7c0e-bc7f-652119512653
 title: Python argparse CLI Template
 language: python
 tags: python, cli, argparse
@@ -546,6 +567,7 @@ if __name__ == "__main__":
 ---
 
 ---
+uid: 01a1f623-acb3-7c57-9206-1bf272110e44
 title: Python HTTP Requests with Retries
 language: python
 tags: python, http, requests
@@ -577,6 +599,7 @@ def fetch_json(url: str, **kwargs) -> dict:
 ---
 
 ---
+uid: 01a1f623-acb4-7593-8e91-8568e99ac492
 title: pyproject.toml Minimal
 language: toml
 tags: python, packaging, toml
@@ -610,6 +633,7 @@ target-version = "py311"
 ---
 
 ---
+uid: 01a1f623-acb5-7466-869f-7929ba8607b0
 title: HTML5 Semantic Boilerplate
 language: html
 tags: web, html, boilerplate
@@ -647,6 +671,7 @@ tags: web, html, boilerplate
 ---
 
 ---
+uid: 01a1f623-acb6-7183-bfdb-c659cff6d7b7
 title: CSS Flexbox and Grid Patterns
 language: css
 tags: web, css, layout
@@ -688,6 +713,7 @@ tags: web, css, layout
 ---
 
 ---
+uid: 01a1f623-acb7-7ff9-83e5-6471fffd9eb8
 title: Fetch API with TypeScript
 language: typescript
 tags: web, fetch, typescript
@@ -726,6 +752,7 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 ---
 
 ---
+uid: 01a1f623-acb8-7c59-9ada-ba37a5c162b0
 title: Vite Config Template
 language: typescript
 tags: web, vite, bundler
@@ -761,6 +788,7 @@ export default defineConfig({
 ---
 
 ---
+uid: 01a1f623-acb9-7f8c-a30a-2cad7615b63b
 title: GitHub Actions CI Pipeline
 language: yaml
 tags: ci, github-actions, node
@@ -798,6 +826,7 @@ jobs:
 ---
 
 ---
+uid: 01a1f623-acba-7f4a-a322-39739a178631
 title: Common SQL Queries
 language: sql
 tags: sql, database, queries
@@ -830,6 +859,7 @@ COMMIT;
 ---
 
 ---
+uid: 01a1f623-acbb-7b4a-894e-97fa36a90dcb
 title: curl API Testing Commands
 language: bash
 tags: api, curl, http, testing
@@ -859,6 +889,7 @@ curl -X POST http://localhost:3000/api/items -H "Content-Type: application/json"
 ---
 
 ---
+uid: 01a1f623-acbc-71ca-82bb-b7aef2e62ef5
 title: Environment Variables Template
 language: bash
 tags: env, config, devops

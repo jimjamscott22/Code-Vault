@@ -232,8 +232,24 @@ Placeholders are highlighted in the editor, and a **fill & copy** button (or `Ct
 Open **Settings** (gear icon, top-left, or `Ctrl+,`):
 
 - **Export vault (JSON)** — writes the whole vault to a JSON file.
-- **Import vault (JSON)** — merges a JSON export; on a title conflict choose *rename*, *skip*, or *overwrite*.
-- **Import Markdown** — creates one or more snippets from a `.md` file. Each `---` front-matter block (`title`, `language`, comma-separated `tags`) starts a new snippet; its body — up to the next front-matter block or EOF — becomes the snippet code (a single fenced ```lang code block is unwrapped automatically). Files with no front-matter import as one snippet with defaulted title/language. Title conflicts follow the same *rename*/*skip*/*overwrite* choice as JSON import.
+- **Import vault (JSON)** — merges a JSON export; on a title conflict choose *rename*, *skip*, or *overwrite*. The whole file imports atomically: if any snippet is invalid, nothing is written.
+- **Import Markdown** — creates one or more snippets from a `.md` file. Each `---` front-matter block (`title`, `language`, comma-separated `tags`, optional `uid`) starts a new snippet; its body — up to the next front-matter block or EOF — becomes the snippet code (a single fenced ```lang code block is unwrapped automatically). Files with no front-matter import as one snippet with defaulted title/language. Title conflicts follow the same *rename*/*skip*/*overwrite* choice as JSON import.
+
+#### Re-importing without duplicates
+
+Every snippet has a stable `uid` (a UUID). JSON exports include it, and you can put it in Markdown front matter:
+
+```markdown
+---
+uid: 0190c3a2-7b1e-7c3d-9f4a-2b6e8d1c5a70
+title: Restart Pi-hole
+language: bash
+tags: linux, pihole
+---
+pihole restartdns
+```
+
+When an imported snippet's `uid` is already in your vault, it's treated as the *same* snippet: **overwrite** updates it in place (including a changed title), and **rename**/**skip** leave it alone. A snippet identical to an existing one (same title, language, and code) is also skipped rather than copied. So importing the same export or pack twice never duplicates anything. The rename/skip/overwrite choice still decides what happens when a *different* snippet has the same title.
 
 ### Snippet packs
 
@@ -241,7 +257,7 @@ Ready-made Markdown files you can load with **Import Markdown** live in [`docs/s
 
 - [`package-managers.md`](docs/snippet-packs/package-managers.md) — 27 common **uv**, **npm**, and **winget** commands, tagged `package-manager` plus the tool name.
 
-A dated backup of `vault.db` is taken on each launch (last 7 kept) in the data directory.
+A dated backup of `vault.db` is taken on each launch (last 7 kept) in the data directory. Before a schema upgrade, a one-off snapshot of the old vault is also written there as `vault.db.pre-v<N>`; it's never pruned, so delete it once you're happy with the upgrade.
 
 ## Data location
 

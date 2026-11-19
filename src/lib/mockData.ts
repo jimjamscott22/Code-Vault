@@ -3,6 +3,7 @@ import type { Snippet } from "./types";
 export const mockSnippets: Snippet[] = [
   {
     id: 1,
+    uid: "00000000-0000-7000-8000-000000000001",
     title: "Find large files on disk",
     description: "List top 20 files by size, sorted descending",
     language: "bash",
@@ -19,6 +20,7 @@ export const mockSnippets: Snippet[] = [
   },
   {
     id: 2,
+    uid: "00000000-0000-7000-8000-000000000002",
     title: "Retry with exponential backoff",
     description: "Decorator that retries a function on exception",
     language: "python",
@@ -50,6 +52,7 @@ def fetch_data(url: str) -> dict:
   },
   {
     id: 3,
+    uid: "00000000-0000-7000-8000-000000000003",
     title: "Docker Compose — Postgres + Redis",
     description: "Local dev stack with Postgres 16 and Redis 7",
     language: "yaml",
@@ -83,6 +86,7 @@ volumes:
   },
   {
     id: 4,
+    uid: "00000000-0000-7000-8000-000000000004",
     title: "Rust — anyhow error context chain",
     description: "Pattern for adding context to errors without losing the source",
     language: "rust",
@@ -106,6 +110,7 @@ fn read_config(path: &str) -> Result<Config> {
   },
   {
     id: 5,
+    uid: "00000000-0000-7000-8000-000000000005",
     title: "TypeScript — deep readonly utility",
     description: "Recursively marks every property as readonly",
     language: "typescript",
@@ -129,6 +134,7 @@ type Config = DeepReadonly<{
   },
   {
     id: 6,
+    uid: "00000000-0000-7000-8000-000000000006",
     title: "SQL — top N per group (window)",
     description: "Rank rows within groups and take the top N",
     language: "sql",
@@ -154,6 +160,7 @@ ORDER BY category, rn;`,
   },
   {
     id: 7,
+    uid: "00000000-0000-7000-8000-000000000007",
     title: "Caddy — reverse proxy with HTTPS",
     description: "Minimal Caddyfile for proxying a local service",
     language: "nginx",
@@ -178,6 +185,7 @@ ORDER BY category, rn;`,
   },
   {
     id: 8,
+    uid: "00000000-0000-7000-8000-000000000008",
     title: "Git — useful aliases",
     description: "Quality-of-life git config aliases",
     language: "bash",
@@ -198,6 +206,7 @@ git config --global alias.aliases "config --get-regexp alias"`,
   },
   {
     id: 9,
+    uid: "00000000-0000-7000-8000-000000000009",
     title: "Python — dataclass with validation",
     description: "Pydantic v2 model with field validators",
     language: "python",
@@ -230,6 +239,7 @@ class UserCreate(BaseModel):
   },
   {
     id: 10,
+    uid: "00000000-0000-7000-8000-000000000010",
     title: "JavaScript — debounce",
     description: "Delay a function call until input settles",
     language: "javascript",

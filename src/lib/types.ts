@@ -31,6 +31,8 @@ export interface NewFolder {
 
 export interface Snippet {
   id: number;
+  /** Stable UUIDv7 identity, assigned by the backend; survives export/import. */
+  uid: string;
   title: string;
   description: string;
   language: string;

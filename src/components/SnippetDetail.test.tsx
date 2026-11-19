@@ -34,6 +34,7 @@ vi.mock("./CodeEditor", () => ({
 
 const BASE_SNIPPET: Snippet = {
   id: 1,
+  uid: "00000000-0000-7000-8000-000000000001",
   title: "Original Title",
   description: "Original description",
   language: "typescript",
