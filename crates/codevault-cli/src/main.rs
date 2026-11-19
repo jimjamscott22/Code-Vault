@@ -201,7 +201,6 @@ fn cmd_get(conn: &rusqlite::Connection, id: i64) -> Result<()> {
 
     println!("Title    : {}", s.title);
     println!("ID       : {}", s.id);
-    println!("UID      : {}", s.uid);
     println!("Language : {}", s.language);
     println!("Tags     : {}", s.tags.join(", "));
     println!("Favourite: {}", if s.favorite { "yes" } else { "no" });
