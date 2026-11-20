@@ -8,6 +8,7 @@ filter by the whole pack or one tool at a time.
 ---
 
 ---
+uid: 01a1f623-ac83-7e25-8f0b-99fb627ff4ba
 title: uv - Install uv
 language: bash
 tags: package-manager, uv, python, setup
@@ -30,6 +31,7 @@ uv --version
 ---
 
 ---
+uid: 01a1f623-ac84-776f-b503-0afbbdbdb5ae
 title: uv - Start a new project
 language: bash
 tags: package-manager, uv, python, setup
@@ -45,6 +47,7 @@ uv run main.py            # creates .venv and runs the script
 ---
 
 ---
+uid: 01a1f623-ac85-776c-ab3a-2f49515d18a8
 title: uv - Add and remove dependencies
 language: bash
 tags: package-manager, uv, python, dependencies
@@ -63,6 +66,7 @@ uv tree --outdated              # show which packages have newer versions
 ---
 
 ---
+uid: 01a1f623-ac86-703f-a454-5eb1865599c9
 title: uv - Sync, lock, and upgrade
 language: bash
 tags: package-manager, uv, python, dependencies
@@ -80,6 +84,7 @@ uv lock --upgrade-package httpx  # upgrade a single package
 ---
 
 ---
+uid: 01a1f623-ac87-7258-aead-4e17abd40bdf
 title: uv - Run commands in the project env
 language: bash
 tags: package-manager, uv, python
@@ -94,6 +99,7 @@ uvx ruff check .                 # run a tool without installing it (= uv tool r
 ---
 
 ---
+uid: 01a1f623-ac88-74a4-9b1d-2a67094e5266
 title: uv - Manage Python versions
 language: bash
 tags: package-manager, uv, python
@@ -108,6 +114,7 @@ uv venv --python 3.11         # create .venv with a specific version
 ---
 
 ---
+uid: 01a1f623-ac89-7869-a4a7-a3b375a9026e
 title: uv - Install global CLI tools
 language: bash
 tags: package-manager, uv, python, tools
@@ -123,6 +130,7 @@ uv tool uninstall httpie
 ---
 
 ---
+uid: 01a1f623-ac8a-721d-a298-a7588e7199df
 title: uv - Single-file script with inline dependencies
 language: bash
 tags: package-manager, uv, python, scripts
@@ -139,6 +147,7 @@ uv run fetch.py
 ---
 
 ---
+uid: 01a1f623-ac8b-7572-bc43-ecf1a8346ad5
 title: uv - pip-compatible commands and export
 language: bash
 tags: package-manager, uv, python, pip
@@ -159,6 +168,7 @@ uv cache clean
 ---
 
 ---
+uid: 01a1f623-ac8c-7630-8faf-eae1a39deae8
 title: npm - Start a project and install packages
 language: bash
 tags: package-manager, npm, node, javascript, dependencies
@@ -175,6 +185,7 @@ npm uninstall express
 ---
 
 ---
+uid: 01a1f623-ac8d-794d-8819-051dacfa9165
 title: npm - Clean install for CI
 language: bash
 tags: package-manager, npm, node, ci
@@ -191,6 +202,7 @@ npm ci --omit=dev
 ---
 
 ---
+uid: 01a1f623-ac8e-722c-9a2d-8724d1915367
 title: npm - Run scripts
 language: bash
 tags: package-manager, npm, node
@@ -207,6 +219,7 @@ npm run lint -- --fix   # pass extra args after --
 ---
 
 ---
+uid: 01a1f623-ac8f-7770-9e82-a7e326741c9e
 title: npm - Check for outdated and update
 language: bash
 tags: package-manager, npm, node, dependencies
@@ -223,6 +236,7 @@ npx npm-check-updates -u && npm install
 ---
 
 ---
+uid: 01a1f623-ac90-7c08-ab6f-d77d1c98d573
 title: npm - Inspect installed packages
 language: bash
 tags: package-manager, npm, node, troubleshooting
@@ -239,6 +253,7 @@ npm explain lodash      # which dependency pulls this in
 ---
 
 ---
+uid: 01a1f623-ac91-7215-845f-baf0cb43620f
 title: npm - Security audit
 language: bash
 tags: package-manager, npm, node, security
@@ -253,6 +268,7 @@ npm audit fix --force     # also apply breaking (major) fixes — test afterward
 ---
 
 ---
+uid: 01a1f623-ac92-7ea6-a691-52cc68a6a492
 title: npm - Run a package without installing (npx)
 language: bash
 tags: package-manager, npm, node, tools
@@ -267,6 +283,7 @@ npm exec -- prettier --write .  # npm exec is the modern npx
 ---
 
 ---
+uid: 01a1f623-ac93-7fc9-99d9-25fbb84effd3
 title: npm - Fix a broken node_modules
 language: bash
 tags: package-manager, npm, node, troubleshooting
@@ -283,6 +300,7 @@ npm install
 ---
 
 ---
+uid: 01a1f623-ac94-7232-8230-288a0bb76cf6
 title: npm - Config and registry
 language: bash
 tags: package-manager, npm, node, config
@@ -299,6 +317,7 @@ npm whoami
 ---
 
 ---
+uid: 01a1f623-ac95-7a3e-8b34-41c2db5a75f0
 title: npm - Bump version and publish
 language: bash
 tags: package-manager, npm, node, release
@@ -314,6 +333,7 @@ npm publish --access public
 ---
 
 ---
+uid: 01a1f623-ac96-7b5c-b47a-9ae1f585ab2a
 title: winget - Search and inspect packages
 language: powershell
 tags: package-manager, winget, windows, powershell
@@ -328,6 +348,7 @@ winget show --id Git.Git --versions      # every available version
 ---
 
 ---
+uid: 01a1f623-ac97-71c3-9ccf-4767e0c12c47
 title: winget - Install packages
 language: powershell
 tags: package-manager, winget, windows, powershell
@@ -348,6 +369,7 @@ winget install --id Mozilla.Firefox -e --scope machine
 ---
 
 ---
+uid: 01a1f623-ac98-76df-8590-289533c72230
 title: winget - Upgrade installed apps
 language: powershell
 tags: package-manager, winget, windows, powershell, maintenance
@@ -362,6 +384,7 @@ winget upgrade --all --include-unknown   # also apps whose version winget can't 
 ---
 
 ---
+uid: 01a1f623-ac99-7412-b33b-0257737955e1
 title: winget - List and uninstall
 language: powershell
 tags: package-manager, winget, windows, powershell
@@ -376,6 +399,7 @@ winget uninstall --id Google.Chrome -e
 ---
 
 ---
+uid: 01a1f623-ac9a-7e6f-abcf-7fb567c2bb4d
 title: winget - Pin a package version
 language: powershell
 tags: package-manager, winget, windows, powershell, maintenance
@@ -391,6 +415,7 @@ winget pin remove --id Microsoft.DotNet.SDK.8 -e
 ---
 
 ---
+uid: 01a1f623-ac9b-718f-8eed-8257aca61070
 title: winget - Export and import an app list
 language: powershell
 tags: package-manager, winget, windows, powershell, backup
@@ -406,6 +431,7 @@ winget import -i "$env:USERPROFILE\winget-apps.json" --accept-package-agreements
 ---
 
 ---
+uid: 01a1f623-ac9c-7758-b280-c741c7688052
 title: winget - Sources and troubleshooting
 language: powershell
 tags: package-manager, winget, windows, powershell, troubleshooting
@@ -421,6 +447,7 @@ winget settings            # open settings.json in your editor
 ---
 
 ---
+uid: 01a1f623-ac9d-7b41-b3d9-aa7061990886
 title: winget - New PC bootstrap script
 language: powershell
 tags: package-manager, winget, windows, powershell, setup, scripts

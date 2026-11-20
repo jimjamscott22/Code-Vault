@@ -5,6 +5,7 @@ import type { Snippet, TagCategory } from "./types";
 function snip(id: number, title: string, tags: string[]): Snippet {
   return {
     id,
+    uid: `00000000-0000-7000-8000-${String(id).padStart(12, "0")}`,
     title,
     description: "",
     language: "bash",

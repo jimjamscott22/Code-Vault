@@ -326,7 +326,7 @@ export default function Settings() {
           </Section>
 
           {/* Import / export */}
-          <Section title="Import / export" hint="Full-vault JSON, or Markdown file(s) — each ---title/language/tags--- front-matter block becomes its own snippet, so one file can hold many.">
+          <Section title="Import / export" hint="Full-vault JSON, or Markdown file(s) — each ---title/language/tags--- front-matter block becomes its own snippet, so one file can hold many. Snippets that carry a uid (exports, packs) are matched by it, so re-importing never duplicates them; the conflict choice applies to title clashes, and only overwrite updates a uid match.">
             <div className="space-y-3">
               <div className="flex items-center gap-2 flex-wrap">
                 <Btn onClick={handleExport} disabled={busy}>Export vault (JSON)</Btn>

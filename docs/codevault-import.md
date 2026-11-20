@@ -1,4 +1,5 @@
 ---
+uid: 01a1f623-acbd-7f05-bc3e-a56902901fe5
 title: Find and kill process on a port
 language: bash
 tags: linux, networking, troubleshooting
@@ -12,6 +13,7 @@ fuser -k 8000/tcp
 ```
 
 ---
+uid: 01a1f623-acbe-78d7-9922-84679407ed46
 title: Cap Rust build parallelism on low-memory devices
 language: bash
 tags: rust, cargo, raspberry-pi, tauri
@@ -25,6 +27,7 @@ CARGO_BUILD_JOBS=2 cargo build
 ```
 
 ---
+uid: 01a1f623-acbf-77bb-bcee-6ff313becc72
 title: Docker Compose full rebuild
 language: bash
 tags: docker, compose
@@ -36,6 +39,7 @@ docker compose build --no-cache && docker compose up
 ```
 
 ---
+uid: 01a1f623-acc0-7ddd-b6b9-01305f7b6f79
 title: Grant current user docker group access
 language: bash
 tags: docker, linux, permissions
@@ -47,6 +51,7 @@ newgrp docker
 ```
 
 ---
+uid: 01a1f623-acc1-7cc3-a394-f090352707e1
 title: UFW allow a service only over Tailscale
 language: bash
 tags: ufw, firewall, tailscale, security
@@ -59,6 +64,7 @@ sudo ufw status
 ```
 
 ---
+uid: 01a1f623-acc2-7335-a3c0-d10a1c418404
 title: Fix SSH authorized_keys permissions
 language: bash
 tags: ssh, linux, permissions
@@ -70,6 +76,7 @@ chmod 600 ~/.ssh/authorized_keys
 ```
 
 ---
+uid: 01a1f623-acc3-7b0d-8cc8-a99b727869de
 title: Disk read/write benchmark with fio
 language: bash
 tags: linux, disk, benchmarking, fio
@@ -84,6 +91,7 @@ sudo fio --name=randread --filename=/dev/sda --rw=randread --bs=4k --direct=1 --
 ```
 
 ---
+uid: 01a1f623-acc4-7a82-800e-7eb38db3b046
 title: Clone/backup a disk with ddrescue
 language: bash
 tags: linux, disk, backup, ddrescue
@@ -95,6 +103,7 @@ sudo ddrescue -f -n /dev/sda /path/to/backup.img backup.log
 ```
 
 ---
+uid: 01a1f623-acc5-7bcd-859d-28032a694a90
 title: MySQL/MariaDB database sizes
 language: sql
 tags: mysql, mariadb, sql, admin
@@ -107,6 +116,7 @@ GROUP BY table_schema;
 ```
 
 ---
+uid: 01a1f623-acc6-72b6-9c95-c30efc6ceef2
 title: Raspberry Pi health check
 language: bash
 tags: raspberry-pi, monitoring
@@ -116,6 +126,7 @@ vcgencmd measure_temp && uptime && free -h
 ```
 
 ---
+uid: 01a1f623-acc7-76d7-9c4d-d37f29507956
 title: Update Pi-hole and refresh gravity list
 language: bash
 tags: pihole, dns
@@ -126,6 +137,7 @@ sudo pihole -g    # rebuild gravity (blocklists)
 ```
 
 ---
+uid: 01a1f623-acc8-77fd-a8e9-41d713f0ce1b
 title: Standard apt maintenance
 language: bash
 tags: linux, apt, maintenance
@@ -136,6 +148,7 @@ sudo apt autoremove -y
 ```
 
 ---
+uid: 01a1f623-acc9-72f2-8f2c-55336936d577
 title: uv + FastAPI dev loop
 language: bash
 tags: python, uv, fastapi, dev
@@ -149,6 +162,7 @@ uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 ---
+uid: 01a1f623-acca-7c23-b351-0e0c14ea88b2
 title: Change git remote URL
 language: bash
 tags: git
@@ -159,6 +173,7 @@ git remote -v   # verify
 ```
 
 ---
+uid: 01a1f623-accb-79d1-b224-91309e7a1968
 title: nmap subnet sweep (authorized targets only)
 language: bash
 tags: nmap, networking, security, pentest
@@ -169,6 +184,7 @@ sudo nmap -sS -Pn 192.168.1.0/24
 ```
 
 ---
+uid: 01a1f623-accc-7a28-bbeb-39651ada52f4
 title: Build and install CodeVault .deb locally
 language: bash
 tags: codevault, tauri, deb
