@@ -249,7 +249,7 @@ tags: linux, pihole
 pihole restartdns
 ```
 
-When an imported snippet's `uid` is already in your vault, it's treated as the *same* snippet: **overwrite** updates it in place (including a changed title), and **rename**/**skip** leave it alone. A snippet identical to an existing one (same title, language, and code) is also skipped rather than copied. So importing the same export or pack twice never duplicates anything. The rename/skip/overwrite choice still decides what happens when a *different* snippet has the same title.
+When an imported snippet's `uid` is already in your vault, it's treated as the *same* snippet: **overwrite** updates it in place (including a changed title), and **rename**/**skip** leave it alone. A snippet identical to one already in your vault (same title, language, code, description, notes, and tags) is also skipped rather than copied. So importing the same export or pack twice never duplicates anything. The rename/skip/overwrite choice still decides what happens when a *different* snippet has the same title.
 
 ### Snippet packs
 

@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
+use std::collections::{BTreeSet, HashSet};
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::{NoContext, Timestamp, Uuid};
@@ -892,12 +893,21 @@ pub fn import_vault_json(conn: &Connection, json: &str, strategy: &str) -> Resul
 
     // All-or-nothing: a bad record aborts the import with the vault untouched.
     let tx = conn.unchecked_transaction()?;
-    let mut result = ImportResult::default();
+    let mut run = ImportRun::default();
     for snip in incoming {
-        apply_import_strategy(&tx, &snip, strategy, &mut result)?;
+        apply_import_strategy(&tx, &snip, strategy, &mut run)?;
     }
     tx.commit()?;
-    Ok(result)
+    Ok(run.result)
+}
+
+/// Per-import state threaded through `apply_import_strategy`.
+#[derive(Default)]
+struct ImportRun {
+    result: ImportResult,
+    /// Rows inserted by *this* import. The identical-snippet rule never
+    /// matches these, so two distinct records in one file both survive.
+    inserted: HashSet<i64>,
 }
 
 /// Insert or merge one incoming snippet and record the outcome on `result`.
@@ -907,8 +917,11 @@ pub fn import_vault_json(conn: &Connection, json: &str, strategy: &str) -> Resul
 ///    copy is never what you want: `overwrite` updates it in place (title
 ///    included), while `skip` and `rename` leave it untouched (counted as
 ///    skipped). This is what makes re-importing a pack idempotent.
-/// 2. **An identical snippet** (title, language, code) already exists — skipped
-///    unless the strategy is `overwrite`; a byte-identical copy is never useful.
+/// 2. **An identical snippet** already in the vault before this import — every
+///    user-editable field matches (title, language, code, description, notes,
+///    and the tag set, case-insensitively; `favorite` is local state and
+///    ignored) — skipped unless the strategy is `overwrite`. A copy that
+///    differs in nothing would be pure duplication.
 /// 3. **Otherwise, a title collision** with a different snippet resolves per
 ///    `strategy`: "skip", "overwrite" (the existing row keeps its own uid),
 ///    or anything else falls back to "rename" (insert as "Title (2)").
@@ -919,7 +932,7 @@ fn apply_import_strategy(
     conn: &Connection,
     snip: &ImportSnippet,
     strategy: &str,
-    result: &mut ImportResult,
+    run: &mut ImportRun,
 ) -> Result<()> {
     let title = if snip.title.trim().is_empty() {
         "Imported snippet"
@@ -938,34 +951,21 @@ fn apply_import_strategy(
         if let Some(id) = find_id_by_uid(conn, uid)? {
             if strategy == "overwrite" {
                 overwrite_snippet(conn, id, snip, title)?;
-                result.overwritten += 1;
+                run.result.overwritten += 1;
             } else {
-                result.skipped += 1;
+                run.result.skipped += 1;
             }
             return Ok(());
         }
     }
 
-    // An identical snippet (same title, language and code) already exists:
-    // a "(2)" copy would be pure duplication. This also covers vaults that
-    // imported a pack before it carried uids (their rows got fresh uids in
-    // the v4 migration, so step 1 can't match them).
-    if strategy != "overwrite" {
-        let identical = conn
-            .query_row(
-                "SELECT 1 FROM snippets WHERE title = ?1 AND language = ?2 AND code = ?3 LIMIT 1",
-                params![title, snip.language, snip.code],
-                |_| Ok(()),
-            )
-            .map(|_| true)
-            .or_else(|err| match err {
-                rusqlite::Error::QueryReturnedNoRows => Ok(false),
-                err => Err(err),
-            })?;
-        if identical {
-            result.skipped += 1;
-            return Ok(());
-        }
+    // An identical snippet already exists: a "(2)" copy would be pure
+    // duplication. This also covers vaults that imported a pack before it
+    // carried uids (their rows got fresh uids in the v4 migration, so the
+    // uid match above can't find them).
+    if strategy != "overwrite" && has_identical_snippet(conn, title, snip, &run.inserted)? {
+        run.result.skipped += 1;
+        return Ok(());
     }
 
     let existing: Option<i64> = match conn.query_row(
@@ -979,22 +979,62 @@ fn apply_import_strategy(
     };
 
     match (existing, strategy) {
-        (Some(_), "skip") => result.skipped += 1,
+        (Some(_), "skip") => run.result.skipped += 1,
         (Some(id), "overwrite") => {
             overwrite_snippet(conn, id, snip, title)?;
-            result.overwritten += 1;
+            run.result.overwritten += 1;
         }
         (Some(_), _) => {
             let renamed = unique_title(conn, title)?;
-            insert_full(conn, snip, &renamed, uid.as_deref())?;
-            result.renamed += 1;
+            let id = insert_full(conn, snip, &renamed, uid.as_deref())?;
+            run.inserted.insert(id);
+            run.result.renamed += 1;
         }
         (None, _) => {
-            insert_full(conn, snip, title, uid.as_deref())?;
-            result.imported += 1;
+            let id = insert_full(conn, snip, title, uid.as_deref())?;
+            run.inserted.insert(id);
+            run.result.imported += 1;
         }
     }
     Ok(())
+}
+
+/// Tag set for identity comparison: trimmed, non-empty, ASCII-lowercased
+/// (matching the `COLLATE NOCASE` on `tags.name`), order and duplicates ignored.
+fn tag_key(tags: &[String]) -> BTreeSet<String> {
+    tags.iter()
+        .map(|t| t.trim().to_ascii_lowercase())
+        .filter(|t| !t.is_empty())
+        .collect()
+}
+
+/// Is there a snippet, not inserted by the current import, whose every
+/// user-editable field equals the incoming one? See `apply_import_strategy`.
+fn has_identical_snippet(
+    conn: &Connection,
+    title: &str,
+    snip: &ImportSnippet,
+    exclude: &HashSet<i64>,
+) -> Result<bool> {
+    let mut stmt = conn.prepare(
+        "SELECT id FROM snippets
+         WHERE title = ?1 AND language = ?2 AND code = ?3
+           AND description = ?4 AND notes = ?5",
+    )?;
+    let candidates = stmt
+        .query_map(
+            params![title, snip.language, snip.code, snip.description, snip.notes],
+            |r| r.get::<_, i64>(0),
+        )?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+
+    let want = tag_key(&snip.tags);
+    for id in candidates {
+        if !exclude.contains(&id) && tag_key(&get_snippet(conn, id)?.tags) == want {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 fn insert_full(conn: &Connection, s: &ImportSnippet, title: &str, uid: Option<&str>) -> Result<i64> {
@@ -1089,19 +1129,19 @@ fn unique_title(conn: &Connection, base: &str) -> Result<String> {
 /// (see `apply_import_strategy`). The whole file imports atomically.
 pub fn import_markdown(conn: &Connection, content: &str, strategy: &str) -> Result<ImportResult> {
     let blocks = split_markdown_blocks(content);
-    let mut result = ImportResult::default();
+    let mut run = ImportRun::default();
 
     // All-or-nothing per file, like JSON import.
     let tx = conn.unchecked_transaction()?;
     if blocks.is_empty() {
-        import_markdown_block(&tx, "", content, strategy, &mut result)?;
+        import_markdown_block(&tx, "", content, strategy, &mut run)?;
     } else {
         for (front, body) in blocks {
-            import_markdown_block(&tx, &front, &body, strategy, &mut result)?;
+            import_markdown_block(&tx, &front, &body, strategy, &mut run)?;
         }
     }
     tx.commit()?;
-    Ok(result)
+    Ok(run.result)
 }
 
 fn import_markdown_block(
@@ -1109,7 +1149,7 @@ fn import_markdown_block(
     front: &str,
     body: &str,
     strategy: &str,
-    result: &mut ImportResult,
+    run: &mut ImportRun,
 ) -> Result<()> {
     let mut uid: Option<String> = None;
     let mut title = String::new();
@@ -1158,7 +1198,7 @@ fn import_markdown_block(
         created_at: None,
         updated_at: None,
     };
-    apply_import_strategy(conn, &snip, strategy, result)
+    apply_import_strategy(conn, &snip, strategy, run)
 }
 
 const FRONT_MATTER_KEYS: [&str; 5] = ["uid", "title", "language", "lang", "tags"];
@@ -1577,6 +1617,59 @@ print(\"two\")
         let r = import_markdown(&conn, PACK, "rename").unwrap();
         assert_eq!((r.renamed, r.skipped), (0, 1));
         assert_eq!(list_snippets(&conn).unwrap().len(), 1);
+    }
+
+    /// Codex review on #8: two distinct snippets sharing title/language/code
+    /// in one export must both survive an import into an empty vault.
+    #[test]
+    fn distinct_snippets_sharing_title_and_code_both_import() {
+        let conn = test_conn();
+        let json = r#"[
+            {"uid":"0190c3a2-7b1e-7c3d-9f4a-2b6e8d1c5a71","title":"T","language":"bash","code":"x","notes":"first"},
+            {"uid":"0190c3a2-7b1e-7c3d-9f4a-2b6e8d1c5a72","title":"T","language":"bash","code":"x","notes":"second","tags":["k"]}
+        ]"#;
+        let r = import_vault_json(&conn, json, "rename").unwrap();
+        assert_eq!((r.imported, r.renamed, r.skipped), (1, 1, 0));
+        let mut notes: Vec<_> = list_snippets(&conn).unwrap().into_iter().map(|s| s.notes).collect();
+        notes.sort();
+        assert_eq!(notes, vec!["first".to_string(), "second".to_string()]);
+
+        // Re-importing the same export now matches both by uid: no new rows.
+        let again = import_vault_json(&conn, json, "rename").unwrap();
+        assert_eq!(again.skipped, 2);
+        assert_eq!(list_snippets(&conn).unwrap().len(), 2);
+    }
+
+    /// Fully identical records (all fields) in one file are still distinct
+    /// rows, since neither existed before the import.
+    #[test]
+    fn fully_identical_records_in_one_file_both_import() {
+        let conn = test_conn();
+        let json = r#"[{"title":"T","code":"x"},{"title":"T","code":"x"}]"#;
+        let r = import_vault_json(&conn, json, "rename").unwrap();
+        assert_eq!((r.imported, r.renamed, r.skipped), (1, 1, 0));
+    }
+
+    #[test]
+    fn existing_snippet_differing_only_in_notes_or_tags_is_not_identical() {
+        let conn = test_conn();
+        create_snippet(&conn, sample("Dup")).unwrap(); // bash, "echo hi", tag "shell"
+        let notes = r#"[{"title":"Dup","language":"bash","code":"echo hi","notes":"n","tags":["shell"]}]"#;
+        assert_eq!(import_vault_json(&conn, notes, "rename").unwrap().renamed, 1);
+        let tags = r#"[{"title":"Dup","language":"bash","code":"echo hi","tags":["other"]}]"#;
+        assert_eq!(import_vault_json(&conn, tags, "rename").unwrap().renamed, 1);
+    }
+
+    #[test]
+    fn identical_match_ignores_tag_case_order_and_favorite() {
+        let conn = test_conn();
+        let mut n = sample("Dup");
+        n.tags = vec!["Linux".to_string(), "shell".to_string()];
+        n.favorite = true;
+        create_snippet(&conn, n).unwrap();
+        let json = r#"[{"title":"Dup","language":"bash","code":"echo hi","tags":["SHELL","linux"]}]"#;
+        let r = import_vault_json(&conn, json, "rename").unwrap();
+        assert_eq!((r.renamed, r.skipped), (0, 1));
     }
 
     #[test]
